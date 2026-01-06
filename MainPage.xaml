@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Recodite.MainPage"
+             xmlns:local="clr-namespace:Recodite">
+    <Grid ColumnDefinitions="Auto,1,*" Background="{StaticResource SecondaryBrush}">
+        <Grid WidthRequest="400" RowDefinitions="Auto,1,*,Auto" Background="{StaticResource SecondaryBrush}">
+            <Grid ColumnDefinitions="Auto,10,Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
+                <Button Style="{StaticResource IconButton}" Text="{x:Static local:IconFont.Addition}" ToolTipProperties.Text="Add"></Button>
+                <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="{x:Static local:IconFont.Delete}" ToolTipProperties.Text="Remove"></Button>
+                <Button Grid.Column="4" Style="{StaticResource IconButton}" Text="{x:Static local:IconFont.Settings}" ToolTipProperties.Text="Settings"></Button>
+            </Grid>
+            <ScrollView Grid.Row="2" Background="{StaticResource PrimaryBrush}">
+                <VerticalStackLayout Spacing="25">
+                    <Label Text="Recodite" Style="{StaticResource Headline}"/>
+                    <Label Text="Work in progress" Style="{StaticResource SubHeadline}"/>
+                </VerticalStackLayout>
+            </ScrollView>
+            <Grid Grid.Row="3" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
+                <Button HeightRequest="45" FontAttributes="Bold" x:Name="CompressButton" Text="Compress All" Clicked="CompressButton_Clicked" HorizontalOptions="Fill"/>
+            </Grid>
+        </Grid>
+        <ScrollView Grid.Column="2" Background="{StaticResource PrimaryBrush}">
+            <VerticalStackLayout Padding="30,0" Spacing="25">
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
