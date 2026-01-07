@@ -4,43 +4,61 @@
              x:Class="Recodite.MainPage"
              x:Name="AppPage"
              xmlns:local="clr-namespace:Recodite"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              BindingContext="{x:Reference AppPage}">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <local:NullToBoolConverter x:Key="NullToBool"/>
+        </ResourceDictionary>
+    </ContentPage.Resources>
     <Grid ColumnDefinitions="Auto,1,*" Background="{StaticResource SecondaryBrush}">
         <Grid WidthRequest="400" RowDefinitions="Auto,1,*,Auto" Background="{StaticResource SecondaryBrush}">
             <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
                 <Button Style="{StaticResource IconButton}" Text="&#xe710;" ToolTipProperties.Text="Add"></Button>
                 <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xe713;" ToolTipProperties.Text="Settings"></Button>
             </Grid>
-            <CollectionView Grid.Row="2" Background="{StaticResource PrimaryBrush}" x:Name="ConvertMenu" ItemsSource="{Binding MediaEntries}">
+            <CollectionView SelectionMode="Single" SelectionChanged="ConvertMenu_SelectionChanged" Grid.Row="2" Background="{StaticResource PrimaryBrush}" x:Name="ConvertMenu" ItemsSource="{Binding MediaEntries}">
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
                         <Grid Background="{StaticResource SecondaryBrush}">
-                            <Grid RowDefinitions="*,10,Auto" Margin="0,0,0,1" Padding="10" Background="{StaticResource PrimaryBrush}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup Name="CommonStates">
+                                    <VisualState Name="Normal">
+                                        <VisualState.Setters>
+                                            <Setter TargetName="AttachmentSelectionContainer" Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState Name="Selected">
+                                        <VisualState.Setters>
+                                            <Setter TargetName="AttachmentSelectionContainer" Property="Background" Value="{StaticResource SecondaryBrush}"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Grid x:Name="AttachmentSelectionContainer" RowDefinitions="*,10,Auto" Margin="0,0,0,1" Padding="10" Background="{StaticResource PrimaryBrush}">
                                 <Grid ColumnDefinitions="Auto,10,*">
-                                    <Grid>
-                                        <Image Background="White" WidthRequest="75" HeightRequest="75"/>
-                                    </Grid>
-                                    <Grid Grid.Column="2" RowDefinitions="*,10,*" HorizontalOptions="Start" VerticalOptions="Center">
-                                        <Label Text="{Binding FileName}" Style="{StaticResource Headline}"/>
-                                        <Label Grid.Row="2" Text="{Binding FileName}" Style="{StaticResource SubHeadline}"/>
+                                    <Border WidthRequest="75" HeightRequest="75" StrokeThickness="0" Stroke="Transparent" StrokeShape="RoundRectangle 5">
+                                        <Image Source="{Binding Thumbnail}" Aspect="AspectFill" BackgroundColor="Black"/>
+                                    </Border>
+                                    <Grid Grid.Column="2" RowDefinitions="*,10,*" VerticalOptions="Center">
+                                        <Label HorizontalOptions="Start" Text="{Binding FileName}" Style="{StaticResource Headline}"/>
+                                        <Label HorizontalOptions="Start" Grid.Row="2" Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
                                     </Grid>
                                 </Grid>
-                                
                                 <Grid HeightRequest="30" ColumnDefinitions="Auto,*,Auto" Grid.Row="2">
-                                    <Border HeightRequest="30" Padding="10,0" StrokeThickness="1" Stroke="{Binding StateColor}">
-                                        <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="5"/>
-                                        </Border.StrokeShape>
+                                    <Border Margin="2" Opacity="0.1" Padding="10,0" StrokeThickness="0" Background="{Binding StateColor}"></Border>
+                                    <Border AnchorX="0" Margin="2" ScaleX="{Binding Progress}" Opacity="0.2" Background="{Binding StateColor}" StrokeThickness="0"></Border>
+                                    <Border HeightRequest="30" Padding="10,0" StrokeShape="RoundRectangle 5" StrokeThickness="1" Stroke="{Binding StateColor}">
                                         <Grid ColumnDefinitions="Auto,5,*">
                                             <Label FontFamily="IconFontTypes" Text="{Binding StateIcon}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
                                             <Label Grid.Column="2" Text="{Binding StateText}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
                                         </Grid>
                                     </Border>
                                     <HorizontalStackLayout Grid.Column="2" Spacing="10">
-                                        <Button Style="{StaticResource SmallIconButton}" Text="{x:Static local:IconFont.Delete}" ToolTipProperties.Text="Remove"></Button>
+                                        <Button Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
                                     </HorizontalStackLayout>
                                 </Grid>
                             </Grid>
@@ -52,11 +70,21 @@
                 <Button HeightRequest="45" FontAttributes="Bold" x:Name="CompressButton" Text="Compress All" Clicked="CompressButton_Clicked" HorizontalOptions="Fill"/>
             </Grid>
         </Grid>
-        <ScrollView Grid.Column="2" Background="{StaticResource PrimaryBrush}">
-            <VerticalStackLayout Padding="30,0" Spacing="25">
-                <Label Text="Recodite" Style="{StaticResource Headline}"/>
-                <Label Text="Work in progress" Style="{StaticResource SubHeadline}"/>
-            </VerticalStackLayout>
-        </ScrollView>
+        <Grid Grid.Column="2" Background="{StaticResource PrimaryBrush}">
+            <ScrollView x:Name="MediaPage" IsVisible="{Binding CurrentEntry, Converter={StaticResource NullToBool}}">
+                <Grid BindingContext="{Binding CurrentEntry}" RowDefinitions="Auto,0,*" Background="{StaticResource SecondaryBrush}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}"></Grid>
+                    <VerticalStackLayout Spacing="10" Grid.Row="2" Padding="20,0" Background="{StaticResource PrimaryBrush}">
+                        <Border HeightRequest="400" StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
+                            <Border StrokeThickness="0" Stroke="Transparent" StrokeShape="RoundRectangle 5">
+                                <toolkit:MediaElement Source="{Binding MediaPath}"/>
+                            </Border>
+                        </Border>
+                        <Label Text="{Binding FileName}" Style="{StaticResource Headline}"/>
+                        <Label Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
+                    </VerticalStackLayout>
+                </Grid>
+            </ScrollView>
+        </Grid>
     </Grid>
 </ContentPage>

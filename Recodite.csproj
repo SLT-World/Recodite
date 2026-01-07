@@ -57,6 +57,17 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <None Remove="ffmpeg\macos\ffmpeg" />
+	  <None Remove="ffmpeg\windows\ffmpeg.exe" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiAsset Include="ffmpeg\macos\ffmpeg" />
+	  <MauiAsset Include="ffmpeg\windows\ffmpeg.exe" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Maui.MediaElement" Version="6.1.3" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 	</ItemGroup>
