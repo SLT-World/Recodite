@@ -13,62 +13,71 @@
     </ContentPage.Resources>
     <Grid ColumnDefinitions="Auto,1,*" Background="{StaticResource SecondaryBrush}">
         <Grid WidthRequest="400" RowDefinitions="Auto,1,*,Auto" Background="{StaticResource SecondaryBrush}">
-            <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
+            <Grid ColumnDefinitions="Auto,10,Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
                 <Button Clicked="InsertAttachmentButton_Clicked" Style="{StaticResource IconButton}" Text="&#xe710;" ToolTipProperties.Text="Add"></Button>
                 <!--<Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xe713;" ToolTipProperties.Text="Settings"></Button>-->
             </Grid>
-            <CollectionView SelectionMode="Single" SelectionChanged="ConvertMenu_SelectionChanged" Grid.Row="2" Background="{StaticResource PrimaryBrush}" x:Name="ConvertMenu" ItemsSource="{Binding MediaEntries}">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Background="{StaticResource SecondaryBrush}">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup Name="CommonStates">
-                                    <VisualState Name="Normal">
-                                        <VisualState.Setters>
-                                            <Setter TargetName="AttachmentSelectionContainer" Property="Background" Value="{StaticResource PrimaryBrush}"/>
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState Name="Selected">
-                                        <VisualState.Setters>
-                                            <Setter TargetName="AttachmentSelectionContainer" Property="Background" Value="{StaticResource SecondaryBrush}"/>
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <Grid x:Name="AttachmentSelectionContainer" RowDefinitions="*,10,Auto" Margin="0,0,0,1" Padding="10" Background="{StaticResource PrimaryBrush}">
-                                <Grid ColumnDefinitions="Auto,10,*">
-                                    <Border WidthRequest="75" HeightRequest="75" StrokeThickness="0" Stroke="Transparent" StrokeShape="RoundRectangle 5">
-                                        <Image Source="{Binding Thumbnail}" Aspect="AspectFill" BackgroundColor="Black"/>
-                                    </Border>
-                                    <Grid Grid.Column="2" RowDefinitions="*,10,*" VerticalOptions="Center">
-                                        <Label Text="{Binding FileName}" Style="{StaticResource Headline}"/>
-                                        <Label Grid.Row="2" Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
+            <Grid Grid.Row="2" Background="{StaticResource PrimaryBrush}">
+                <Grid.GestureRecognizers>
+                    <DropGestureRecognizer AllowDrop="True" DragOver="DropGestureRecognizer_DragOver" Drop="DropGestureRecognizer_Drop"/>
+                </Grid.GestureRecognizers>
+                <Grid x:Name="ConvertMenuPlaceholder" VerticalOptions="CenterAndExpand" HorizontalOptions="Center">
+                    <Label Text="Drag files here or click + to select videos" HorizontalTextAlignment="Center" Style="{StaticResource SubHeadline}"/>
+                </Grid>
+                <CollectionView SelectionMode="Single" SelectionChanged="ConvertMenu_SelectionChanged" x:Name="ConvertMenu" ItemsSource="{Binding MediaEntries}">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Background="{StaticResource SecondaryBrush}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup Name="CommonStates">
+                                        <VisualState Name="Normal">
+                                            <VisualState.Setters>
+                                                <Setter TargetName="AttachmentSelectionContainer" Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter TargetName="AttachmentSelectionContainer" Property="Background" Value="{StaticResource SecondaryBrush}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Grid x:Name="AttachmentSelectionContainer" RowDefinitions="*,10,Auto" Margin="0,0,0,1" Padding="10" Background="{StaticResource PrimaryBrush}">
+                                    <Grid ColumnDefinitions="Auto,10,*">
+                                        <Border WidthRequest="75" HeightRequest="75" StrokeThickness="0" Stroke="Transparent" StrokeShape="RoundRectangle 5">
+                                            <Image Source="{Binding Thumbnail}" Aspect="AspectFill" BackgroundColor="Black"/>
+                                        </Border>
+                                        <Grid Grid.Column="2" RowDefinitions="*,10,*" VerticalOptions="Center">
+                                            <Label Text="{Binding FileName}" Style="{StaticResource Headline}"/>
+                                            <Label Grid.Row="2" Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
+                                        </Grid>
+                                    </Grid>
+                                    <Grid HeightRequest="30" ColumnDefinitions="Auto,*,Auto" Grid.Row="2">
+                                        <Border Margin="2" Opacity="0.1" Padding="10,0" StrokeThickness="0" Background="{Binding StateColor}"></Border>
+                                        <Border AnchorX="0" Margin="2" ScaleX="{Binding Progress}" Opacity="0.2" Background="{Binding StateColor}" StrokeThickness="0"></Border>
+                                        <Border HeightRequest="30" Padding="10,0" StrokeShape="RoundRectangle 5" StrokeThickness="1" Stroke="{Binding StateColor}">
+                                            <Grid ColumnDefinitions="Auto,5,*">
+                                                <Label FontFamily="IconFontTypes" Text="{Binding StateIcon}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
+                                                <Label Grid.Column="2" Text="{Binding StateText}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
+                                            </Grid>
+                                        </Border>
+                                        <HorizontalStackLayout Grid.Column="2" Spacing="10">
+                                            <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
+                                            <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.CancelCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanCancel}" Style="{StaticResource SmallIconButton}" Text="&#xe711;" ToolTipProperties.Text="Cancel"></Button>
+                                            <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
+                                        </HorizontalStackLayout>
                                     </Grid>
                                 </Grid>
-                                <Grid HeightRequest="30" ColumnDefinitions="Auto,*,Auto" Grid.Row="2">
-                                    <Border Margin="2" Opacity="0.1" Padding="10,0" StrokeThickness="0" Background="{Binding StateColor}"></Border>
-                                    <Border AnchorX="0" Margin="2" ScaleX="{Binding Progress}" Opacity="0.2" Background="{Binding StateColor}" StrokeThickness="0"></Border>
-                                    <Border HeightRequest="30" Padding="10,0" StrokeShape="RoundRectangle 5" StrokeThickness="1" Stroke="{Binding StateColor}">
-                                        <Grid ColumnDefinitions="Auto,5,*">
-                                            <Label FontFamily="IconFontTypes" Text="{Binding StateIcon}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
-                                            <Label Grid.Column="2" Text="{Binding StateText}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
-                                        </Grid>
-                                    </Border>
-                                    <HorizontalStackLayout Grid.Column="2" Spacing="10">
-                                        <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
-                                        <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
-                                    </HorizontalStackLayout>
-                                </Grid>
                             </Grid>
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
             <Grid Grid.Row="3" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
-                <Button HeightRequest="45" FontAttributes="Bold" x:Name="CompressButton" Text="Compress All" Clicked="CompressButton_Clicked" HorizontalOptions="Fill"/>
+                <Button IsEnabled="{Binding CanCompress}" HeightRequest="45" FontAttributes="Bold" x:Name="CompressButton" Text="Compress All" Clicked="CompressButton_Clicked" HorizontalOptions="Fill"/>
             </Grid>
         </Grid>
         <Grid Grid.Column="2" Background="{StaticResource PrimaryBrush}">
