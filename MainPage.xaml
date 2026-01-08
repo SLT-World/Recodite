@@ -9,13 +9,96 @@
     <ContentPage.Resources>
         <ResourceDictionary>
             <local:NullToBoolConverter x:Key="NullToBool"/>
+            <local:OppositeBoolConverter x:Key="OppositeBool"/>
+            <Style x:Key="InvalidEntryStyle" TargetType="Entry">
+                <Setter Property="TextColor" Value="Red"/>
+            </Style>
+            <Style x:Key="ValidEntryStyle" TargetType="Entry">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}"/>
+            </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
-    <Grid ColumnDefinitions="Auto,1,*" Background="{StaticResource SecondaryBrush}">
-        <Grid WidthRequest="400" RowDefinitions="Auto,1,*,Auto" Background="{StaticResource SecondaryBrush}">
-            <Grid ColumnDefinitions="Auto,10,Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
+    <Grid ColumnDefinitions="Auto,1,Auto,1,*" Background="{StaticResource SecondaryBrush}">
+        <Grid x:Name="OptionsMenu" IsVisible="False" RowDefinitions="Auto,0,*" WidthRequest="400" Background="{StaticResource SecondaryBrush}">
+            <ScrollView Grid.Row="2" Padding="10">
+                <VerticalStackLayout Spacing="10">
+                    <Border HeightRequest="400" Background="{StaticResource SecondaryBrush}" StrokeThickness="0" StrokeShape="RoundRectangle 5">
+                        <Grid ColumnDefinitions="Auto,1,*" RowDefinitions="*,1,Auto">
+                            <Border Background="{StaticResource PrimaryBrush}" Padding="10,5" StrokeThickness="0">
+                                <CollectionView SelectionMode="Single" SelectionChanged="PresetsMenu_SelectionChanged" x:Name="PresetsMenu" ItemsSource="{Binding Presets}">
+                                    <CollectionView.ItemsLayout>
+                                        <GridItemsLayout Orientation="Vertical" VerticalItemSpacing="5"/>
+                                    </CollectionView.ItemsLayout>
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border WidthRequest="45" HeightRequest="45" StrokeThickness="2" Stroke="{StaticResource SecondaryBrush}" Background="{StaticResource SecondaryBrush}" StrokeShape="RoundRectangle 5">
+                                                <VisualStateManager.VisualStateGroups>
+                                                    <VisualStateGroup Name="CommonStates">
+                                                        <VisualState Name="Normal">
+                                                            <VisualState.Setters>
+                                                                <Setter Property="Stroke" Value="{StaticResource SecondaryBrush}"/>
+                                                            </VisualState.Setters>
+                                                        </VisualState>
+                                                        <VisualState Name="Selected">
+                                                            <VisualState.Setters>
+                                                                <Setter Property="Stroke" Value="{StaticResource ThemeBrush}"/>
+                                                            </VisualState.Setters>
+                                                        </VisualState>
+                                                    </VisualStateGroup>
+                                                </VisualStateManager.VisualStateGroups>
+                                                <Label VerticalOptions="Center" HorizontalOptions="Center" Text="{Binding Icon}" Style="{StaticResource Headline}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </Border>
+                            <Grid Background="{StaticResource PrimaryBrush}" Grid.Column="2">
+                                <Grid IsVisible="{Binding CurrentPresetOptions, Converter={StaticResource NullToBool}}">
+                                    <VerticalStackLayout Padding="10" Spacing="10" BindingContext="{Binding CurrentPresetOptions}">
+                                        <Button Clicked="SetDefaultButton_Clicked" IsEnabled="{Binding Default, Converter={StaticResource OppositeBool}}" Text="Set Default"></Button>
+                                        <Grid ColumnDefinitions="Auto,10,*">
+                                            <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe70f;" ToolTipProperties.Text="Name" Style="{StaticResource SubHeadline}"/>
+                                            <Entry Grid.Column="2" Keyboard="Numeric" Text="{Binding Name, Mode=TwoWay}">
+                                                <Entry.Behaviors>
+                                                    <toolkit:TextValidationBehavior InvalidStyle="{StaticResource InvalidEntryStyle}" ValidStyle="{StaticResource ValidEntryStyle}" Flags="ValidateOnValueChanged" MinimumLength="1" DecorationFlags="Trim,NormalizeWhiteSpace,NullToEmpty"/>
+                                                </Entry.Behaviors>
+                                            </Entry>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,10,*" RowDefinitions="*,*">
+                                            <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xec48;" ToolTipProperties.Text="Speed" Style="{StaticResource SubHeadline}"/>
+                                            <Slider Grid.Column="2" x:Name="SpeedSlider" Minimum="0" Maximum="4" ValueChanged="SpeedSlider_ValueChanged" DragCompleted="SpeedSlider_DragCompleted"/>
+                                            <Label Grid.Row="1" HorizontalOptions="Center" Grid.Column="2" Text="{Binding Speed}" Style="{StaticResource SubHeadline}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+                                            <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xf000;" ToolTipProperties.Text="Target Size (MB)" Style="{StaticResource SubHeadline}"/>
+                                            <Entry Grid.Column="2" Keyboard="Numeric" Text="{Binding TargetSizeMB, Mode=TwoWay}">
+                                                <Entry.Behaviors>
+                                                    <toolkit:NumericValidationBehavior InvalidStyle="{StaticResource InvalidEntryStyle}" ValidStyle="{StaticResource ValidEntryStyle}" Flags="ValidateOnValueChanged" MinimumValue="1" MaximumValue="10000000" MaximumDecimalPlaces="0"/>
+                                                </Entry.Behaviors>
+                                            </Entry>
+                                            <Label VerticalOptions="Center" HorizontalOptions="Center" Grid.Column="4" Text="MB" Style="{StaticResource SubHeadline}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,10,Auto,10,*">
+                                            <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe8d6;" ToolTipProperties.Text="Remove Audio" Style="{StaticResource SubHeadline}"/>
+                                            <Switch MinimumWidthRequest="0" Grid.Column="2" IsToggled="{Binding Mute, Mode=TwoWay}"/>
+                                            <Label VerticalOptions="Center" Grid.Column="4" Text="Remove Audio" Style="{StaticResource Headline}"/>
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Grid>
+                            <Grid Background="{StaticResource PrimaryBrush}" Padding="10" ColumnDefinitions="*,10,*" Grid.Row="2" Grid.ColumnSpan="3">
+                                <Button Clicked="AddPresetButton_Clicked" Text="Add"></Button>
+                                <Button Grid.Column="2" Clicked="RemovePresetButton_Clicked" Text="Remove" Background="Red"></Button>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+        <Grid Grid.Column="2" WidthRequest="400" RowDefinitions="Auto,1,*,Auto" Background="{StaticResource SecondaryBrush}">
+            <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
                 <Button Clicked="InsertAttachmentButton_Clicked" Style="{StaticResource IconButton}" Text="&#xe710;" ToolTipProperties.Text="Add"></Button>
-                <!--<Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xe713;" ToolTipProperties.Text="Settings"></Button>-->
+                <Button Clicked="OptionsButton_Clicked" Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xe9e9;" ToolTipProperties.Text="Options"></Button>
             </Grid>
             <Grid Grid.Row="2" Background="{StaticResource PrimaryBrush}">
                 <Grid.GestureRecognizers>
@@ -65,6 +148,11 @@
                                             </Grid>
                                         </Border>
                                         <HorizontalStackLayout Grid.Column="2" Spacing="10">
+                                            <Picker IsVisible="{Binding CanModify}"
+    ItemsSource="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.Presets}"
+    SelectedItem="{Binding Preset, Mode=TwoWay}"
+    ItemDisplayBinding="{Binding Name}"
+    HeightRequest="30"/>
                                             <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
                                             <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.CancelCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanCancel}" Style="{StaticResource SmallIconButton}" Text="&#xe711;" ToolTipProperties.Text="Cancel"></Button>
                                             <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
@@ -80,7 +168,7 @@
                 <Button IsEnabled="{Binding CanCompress}" HeightRequest="45" FontAttributes="Bold" x:Name="CompressButton" Text="Compress All" Clicked="CompressButton_Clicked" HorizontalOptions="Fill"/>
             </Grid>
         </Grid>
-        <Grid Grid.Column="2" Background="{StaticResource PrimaryBrush}">
+        <Grid Grid.Column="4" Background="{StaticResource PrimaryBrush}">
             <ScrollView x:Name="MediaPage" IsVisible="{Binding CurrentEntry, Converter={StaticResource NullToBool}}">
                 <Grid BindingContext="{Binding CurrentEntry}" RowDefinitions="Auto,0,*" Background="{StaticResource SecondaryBrush}">
                     <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}"></Grid>

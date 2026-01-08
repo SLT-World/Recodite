@@ -20,3 +20,6 @@ Recodite is licensed under the [GNU General Public License v3.0](https://github.
 
 ## Contribution
 Contributions, suggestions and bug reports are welcome.
+
+## Images
+![Application](https://raw.githubusercontent.com/SLT-World/Recodite/main/GitHub/Thumbnail.png)

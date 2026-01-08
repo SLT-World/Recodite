@@ -1,8 +1,10 @@
 ﻿using CommunityToolkit.Maui.Storage;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 
@@ -23,6 +25,85 @@ namespace Recodite
         Pending,
         Fail,
         Cancel
+    }
+    public enum CompressionSpeed
+    {
+        Fastest = 0,
+        Fast = 1,
+        Medium = 2,
+        Slow = 3,
+        Slowest = 4
+    }
+
+    public class CompressionPreset : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler PropertyChanged = delegate { };
+
+        private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
+            PropertyChanged(this, new PropertyChangedEventArgs(Name));
+        public string Icon { get; set; } = "";
+        private string _Name = "";
+        public string Name
+        {
+            get { return _Name; }
+            set
+            {
+                if (value == _Name || value.Length == 0)
+                    return;
+                _Name = value;
+                Icon = value[0].ToString();
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(Icon));
+            }
+        }
+        private int _TargetSizeMB = 8;
+        public int TargetSizeMB
+        {
+            get { return _TargetSizeMB; }
+            set
+            {
+                if (value == _TargetSizeMB)
+                    return;
+                _TargetSizeMB = value;
+                RaisePropertyChanged();
+            }
+        }
+        private CompressionSpeed _Speed = CompressionSpeed.Fastest;
+        public CompressionSpeed Speed
+        {
+            get { return _Speed; }
+            set
+            {
+                if (value == _Speed)
+                    return;
+                _Speed = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _Mute = false;
+        public bool Mute
+        {
+            get { return _Mute; }
+            set
+            {
+                if (value == _Mute)
+                    return;
+                _Mute = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _Default = false;
+        public bool Default
+        {
+            get { return _Default; }
+            set
+            {
+                if (value == _Default)
+                    return;
+                _Default = value;
+                RaisePropertyChanged();
+            }
+        }
     }
 
     public class Attachment : INotifyPropertyChanged
@@ -93,6 +174,18 @@ namespace Recodite
             }
         }
 
+        private CompressionPreset _Preset;
+        public CompressionPreset Preset
+        {
+            get => _Preset;
+            set
+            {
+                if (_Preset == value) return;
+                _Preset = value;
+                RaisePropertyChanged();
+            }
+        }
+
         public string StateText { get; set; } = "";
         public string StateIcon { get; set; } = "";
         public Color StateColor { get; set; }
@@ -100,6 +193,7 @@ namespace Recodite
         public TimeSpan Duration { get; set; }
         public bool CanSave { get; set; } = false;
         public bool CanCancel { get; set; } = false;
+        public bool CanModify { get; set; } = true;
         public CancellationTokenSource? CancellationTokenSource { get; set; }
 
         public void SetState(AttachmentState State, float _Progress = 0)
@@ -123,22 +217,28 @@ namespace Recodite
                     }
                     CanSave = File.Exists(MediaPath);
                     CanCancel = false;
+                    CanModify = false;
                     RaisePropertyChanged(nameof(CanSave));
                     RaisePropertyChanged(nameof(CanCancel));
+                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Process:
                     StateText = $"Processing: {_Progress * 100:0}%";
                     StateIcon = "\ue9f5";
                     StateColor = Colors.MediumPurple;
                     CanCancel = true;
+                    CanModify = false;
                     RaisePropertyChanged(nameof(CanCancel));
+                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Pending:
                     StateText = "Pending";
                     StateIcon = "\ue916";
                     StateColor = Colors.Orange;
                     CanCancel = true;
+                    CanModify = true;
                     RaisePropertyChanged(nameof(CanCancel));
+                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Fail:
                     StateText = "Failed";
@@ -146,8 +246,10 @@ namespace Recodite
                     StateColor = Colors.Red;
                     CanSave = false;
                     CanCancel = false;
+                    CanModify = false;
                     RaisePropertyChanged(nameof(CanSave));
                     RaisePropertyChanged(nameof(CanCancel));
+                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Cancel:
                     StateText = "Cancelled";
@@ -155,8 +257,10 @@ namespace Recodite
                     StateColor = Colors.Gold;
                     CanSave = false;
                     CanCancel = false;
+                    CanModify = false;
                     RaisePropertyChanged(nameof(CanSave));
                     RaisePropertyChanged(nameof(CanCancel));
+                    RaisePropertyChanged(nameof(CanModify));
                     break;
             }
             RaisePropertyChanged(nameof(Progress));
@@ -174,7 +278,9 @@ namespace Recodite
         private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
             PropertyChanged(this, new PropertyChangedEventArgs(Name));
         #endregion
+        private string PresetsPath => Path.Combine(FileSystem.AppDataDirectory, "presets.json");
         public bool CanCompress => MediaEntries.Any() && MediaEntries.Any(a => string.IsNullOrEmpty(a.StateText));
+        public bool CanRemovePresets => Presets.Any() && Presets.Count > 1;
 
         private ObservableCollection<Attachment> _MediaEntries = new();
         public ObservableCollection<Attachment> MediaEntries
@@ -187,6 +293,20 @@ namespace Recodite
                 _MediaEntries = value;
                 RaisePropertyChanged();
                 RaisePropertyChanged(nameof(CanCompress));
+            }
+        }
+
+        private ObservableCollection<CompressionPreset> _Presets = new();
+        public ObservableCollection<CompressionPreset> Presets
+        {
+            get { return _Presets; }
+            set
+            {
+                if (value == _Presets)
+                    return;
+                _Presets = value;
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(CanRemovePresets));
             }
         }
 
@@ -203,6 +323,19 @@ namespace Recodite
             }
         }
 
+        private CompressionPreset? _CurrentPresetOptions = null;
+        public CompressionPreset? CurrentPresetOptions
+        {
+            get { return _CurrentPresetOptions; }
+            set
+            {
+                if (value == _CurrentPresetOptions)
+                    return;
+                _CurrentPresetOptions = value;
+                RaisePropertyChanged();
+            }
+        }
+
         public ICommand DeleteCommand { get; }
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
@@ -215,8 +348,56 @@ namespace Recodite
             DeleteCommand = new Command<Attachment>(DeleteAttachment);
             SaveCommand = new Command<Attachment>(SaveAttachment);
             CancelCommand = new Command<Attachment>(CancelAttachment);
+            if (File.Exists(PresetsPath))
+            {
+                List<CompressionPreset> Loaded = JsonSerializer.Deserialize<List<CompressionPreset>>(File.ReadAllText(PresetsPath)) ?? [
+                    GeneratePreset("Small", 8, CompressionSpeed.Fastest, true)
+                ];
+                foreach (var Preset in Loaded)
+                {
+                    Preset.PropertyChanged += (_, e) => SavePresets();
+                    Presets.Add(Preset);
+                }
+            }
+            else
+            {
+                Presets = [
+                    GeneratePreset("Small", 8, CompressionSpeed.Fastest, true),
+                    GeneratePreset("Balanced", 15, CompressionSpeed.Fast)
+                ];
+            }
+            Presets.CollectionChanged += (_, e) => SavePresets();
+
+            DefaultPreset = Presets.FirstOrDefault(i => i.Default) ?? Presets[0];
+            DefaultPreset.Default = true;
+            PresetsMenu.SelectedItem = DefaultPreset;
+            RaisePropertyChanged(nameof(CanRemovePresets));
         }
-        //TODO: Add settings
+
+        public CompressionPreset GeneratePreset(string Name, int TargetSizeMB, CompressionSpeed Speed, bool Default = false)
+        {
+            CompressionPreset Preset = new() { Name = Name, TargetSizeMB = TargetSizeMB, Speed = Speed, Default = Default };
+            Preset.PropertyChanged += (_, e) => SavePresets();
+            return Preset;
+        }
+
+        private void SavePresets()
+        {
+            File.WriteAllText(PresetsPath, JsonSerializer.Serialize(Presets, new JsonSerializerOptions { WriteIndented = false }));
+        }
+
+        string CompressioSpeedToFFmpegPreset(CompressionSpeed Speed)
+        {
+            switch (Speed)
+            {
+                case CompressionSpeed.Fastest: return "veryfast";
+                case CompressionSpeed.Fast: return "fast";
+                case CompressionSpeed.Medium: return "medium";
+                case CompressionSpeed.Slow: return "slow";
+                case CompressionSpeed.Slowest: return "veryslow";
+            }
+            return "veryfast";
+        }
 
         private async void AppPage_Loaded(object sender, EventArgs e)
         {
@@ -301,11 +482,12 @@ namespace Recodite
 
             await Task.Run(() =>
             {
-                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v libx264 -preset veryfast -vf scale=-2:720 -b:v {GetTargetVideoBitrate(_Attachment.Duration, TargetSizeMB: 9)}";
+                string AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a aac -b:a 128k";
+                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v libx264 -preset {CompressioSpeedToFFmpegPreset(_Attachment.Preset.Speed)} -vf scale=-2:720 -b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
                 string NullDevice = OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
-                RunFFmpeg($"-y {Arguments} -pass 1 -an -f mp4 {NullDevice}", _Attachment);
+                RunFFmpeg($"-y {Arguments} -pass 1 {AudioArguments} -f mp4 {NullDevice}", _Attachment);
                 RunFFmpeg(
-                    $"-y {Arguments} -pass 2 -c:a aac -b:a 128k \"{Output}\"",
+                    $"-y {Arguments} -pass 2 {AudioArguments} \"{Output}\"",
                     _Attachment,
                     StandardError =>
                     {
@@ -401,6 +583,8 @@ namespace Recodite
             return Math.Max(VideoBitrate, 300_000);
         }
 
+        CompressionPreset DefaultPreset;
+
         TimeSpan GetDuration(string input)
         {
             Process FFmpegProcess = new()
@@ -433,6 +617,7 @@ namespace Recodite
                 MediaPath = File.FullName,
                 MediaPathOriginal = File.FullName,
                 OriginalSize = $"{File.Length / 1024f / 1024f:0.0}",
+                Preset = DefaultPreset
             };
             _Attachment.PropertyChanged += (_, e) =>
             {
@@ -556,6 +741,76 @@ namespace Recodite
                 if (File.Exists(_Path) && SupportedExtensions.Contains(Path.GetExtension(_Path).ToLowerInvariant()))
                     AddAttachment(new FileInfo(_Path));
             }
+        }
+
+        private void OptionsButton_Clicked(object sender, EventArgs e) =>
+            OptionsMenu.IsVisible = !OptionsMenu.IsVisible;
+
+        bool AllowPresetSelection = true;
+
+        private void PresetsMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!AllowPresetSelection)
+                return;
+            CurrentPresetOptions = e.CurrentSelection.FirstOrDefault() as CompressionPreset;
+            if (CurrentPresetOptions == null)
+                return;
+            SpeedSlider.Value = (int)CurrentPresetOptions.Speed;
+        }
+
+        private void SpeedSlider_ValueChanged(object sender, ValueChangedEventArgs e)
+        {
+            if (CurrentPresetOptions == null)
+                return;
+            int Rounded = (int)Math.Round(e.NewValue);
+            CurrentPresetOptions.Speed = (CompressionSpeed)Rounded;
+        }
+
+        private void SpeedSlider_DragCompleted(object sender, EventArgs e)
+        {
+            if (CurrentPresetOptions == null)
+                return;
+            SpeedSlider.Value = (int)CurrentPresetOptions.Speed;
+        }
+
+        private void SetDefaultButton_Clicked(object sender, EventArgs e)
+        {
+            if (CurrentPresetOptions == null)
+                return;
+            foreach (CompressionPreset _Preset in Presets)
+                _Preset.Default = false;
+            CurrentPresetOptions.Default = true;
+            DefaultPreset = CurrentPresetOptions;
+        }
+
+        private void AddPresetButton_Clicked(object sender, EventArgs e)
+        {
+            CompressionPreset Preset = GeneratePreset("New Preset", 10, CompressionSpeed.Fastest);
+            Presets.Add(Preset);
+            PresetsMenu.SelectedItem = Preset;
+            RaisePropertyChanged(nameof(CanRemovePresets));
+        }
+
+        private async void RemovePresetButton_Clicked(object sender, EventArgs e)
+        {
+            if (CurrentPresetOptions == null || Presets.Count == 1)
+                return;
+            if (!await DisplayAlertAsync("Remove preset?", CurrentPresetOptions.Name, "Remove", "Cancel"))
+                return;
+
+            CompressionPreset PresetToRemove = CurrentPresetOptions;
+            bool PreviousEnabled = AllowPresetSelection;
+            AllowPresetSelection = false;
+
+            Presets.Remove(PresetToRemove);
+            if (DefaultPreset == PresetToRemove)
+            {
+                DefaultPreset = Presets.FirstOrDefault(i => i.Default) ?? Presets[0];
+                DefaultPreset.Default = true;
+            }
+            AllowPresetSelection = PreviousEnabled;
+            PresetsMenu.SelectedItem = DefaultPreset;
+            RaisePropertyChanged(nameof(CanRemovePresets));
         }
     }
 }
