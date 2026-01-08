@@ -5,7 +5,7 @@
              x:Name="AppPage"
              xmlns:local="clr-namespace:Recodite"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
-             BindingContext="{x:Reference AppPage}">
+             BindingContext="{x:Reference AppPage}" Loaded="AppPage_Loaded">
     <ContentPage.Resources>
         <ResourceDictionary>
             <local:NullToBoolConverter x:Key="NullToBool"/>
@@ -14,8 +14,8 @@
     <Grid ColumnDefinitions="Auto,1,*" Background="{StaticResource SecondaryBrush}">
         <Grid WidthRequest="400" RowDefinitions="Auto,1,*,Auto" Background="{StaticResource SecondaryBrush}">
             <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="60" Padding="10" Background="{StaticResource PrimaryBrush}">
-                <Button Style="{StaticResource IconButton}" Text="&#xe710;" ToolTipProperties.Text="Add"></Button>
-                <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xe713;" ToolTipProperties.Text="Settings"></Button>
+                <Button Clicked="InsertAttachmentButton_Clicked" Style="{StaticResource IconButton}" Text="&#xe710;" ToolTipProperties.Text="Add"></Button>
+                <!--<Button Grid.Column="2" Style="{StaticResource IconButton}" Text="&#xe713;" ToolTipProperties.Text="Settings"></Button>-->
             </Grid>
             <CollectionView SelectionMode="Single" SelectionChanged="ConvertMenu_SelectionChanged" Grid.Row="2" Background="{StaticResource PrimaryBrush}" x:Name="ConvertMenu" ItemsSource="{Binding MediaEntries}">
                 <CollectionView.ItemsLayout>
@@ -44,8 +44,8 @@
                                         <Image Source="{Binding Thumbnail}" Aspect="AspectFill" BackgroundColor="Black"/>
                                     </Border>
                                     <Grid Grid.Column="2" RowDefinitions="*,10,*" VerticalOptions="Center">
-                                        <Label HorizontalOptions="Start" Text="{Binding FileName}" Style="{StaticResource Headline}"/>
-                                        <Label HorizontalOptions="Start" Grid.Row="2" Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
+                                        <Label Text="{Binding FileName}" Style="{StaticResource Headline}"/>
+                                        <Label Grid.Row="2" Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
                                     </Grid>
                                 </Grid>
                                 <Grid HeightRequest="30" ColumnDefinitions="Auto,*,Auto" Grid.Row="2">
@@ -58,7 +58,8 @@
                                         </Grid>
                                     </Border>
                                     <HorizontalStackLayout Grid.Column="2" Spacing="10">
-                                        <Button Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
+                                        <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
+                                        <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
                                     </HorizontalStackLayout>
                                 </Grid>
                             </Grid>
@@ -80,8 +81,34 @@
                                 <toolkit:MediaElement Source="{Binding MediaPath}"/>
                             </Border>
                         </Border>
-                        <Label Text="{Binding FileName}" Style="{StaticResource Headline}"/>
-                        <Label Text="{Binding SubText}" Style="{StaticResource SubHeadline}"/>
+                        <Grid ColumnDefinitions="*,10,*">
+                            <Border StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
+                                <VerticalStackLayout Spacing="10">
+                                    <Label FontAttributes="Bold" Text="Original" Style="{StaticResource SubHeadline}"/>
+                                    <Grid ColumnDefinitions="Auto,10,Auto,*">
+                                        <Label Text="{Binding OriginalSize}" Style="{StaticResource Header}"/>
+                                        <Label Grid.Column="2" Text="MB" Style="{StaticResource SubHeader}"/>
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="2" StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
+                                <VerticalStackLayout Spacing="10">
+                                    <Label FontAttributes="Bold" Text="Compressed" Style="{StaticResource SubHeadline}"/>
+                                    <Grid ColumnDefinitions="Auto,10,Auto,10,Auto,*">
+                                        <Label Text="{Binding CompressedSize}" Style="{StaticResource Header}"/>
+                                        <Label Grid.Column="2" Text="MB" Style="{StaticResource SubHeader}"/>
+                                        <Border HeightRequest="26" Grid.Column="4" Margin="2" Opacity="0.1" Padding="10,0" StrokeThickness="0" Background="{Binding StateColor}"></Border>
+                                        <Border HeightRequest="26" Grid.Column="4" AnchorX="0" Margin="2" ScaleX="{Binding Progress}" Opacity="0.2" Background="{Binding StateColor}" StrokeThickness="0"></Border>
+                                        <Border HeightRequest="30" Grid.Column="4" Padding="10,0" StrokeShape="RoundRectangle 5" StrokeThickness="1" Stroke="{Binding StateColor}">
+                                            <Grid ColumnDefinitions="Auto,5,*">
+                                                <Label FontFamily="IconFontTypes" Text="{Binding StateIcon}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
+                                                <Label Grid.Column="2" Text="{Binding StateText}" TextColor="{Binding StateColor}" VerticalOptions="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
                     </VerticalStackLayout>
                 </Grid>
             </ScrollView>

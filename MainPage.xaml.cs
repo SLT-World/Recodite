@@ -1,8 +1,10 @@
-﻿using System.Collections.ObjectModel;
+﻿using CommunityToolkit.Maui.Storage;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using System.Windows.Input;
 
 namespace Recodite
 {
@@ -20,7 +22,7 @@ namespace Recodite
 
         private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
             PropertyChanged(this, new PropertyChangedEventArgs(Name));
-        public string FileName { get; set; } = "";
+        public string FileName { get; set; }
         private string _SubText = "";
         public string SubText
         {
@@ -33,15 +35,28 @@ namespace Recodite
                 RaisePropertyChanged();
             }
         }
-        private string _MediaPathOriginal = "";
-        public string MediaPathOriginal
+        public string MediaPathOriginal = "";
+        private string _OriginalSize = "";
+        public string OriginalSize
         {
-            get { return _MediaPathOriginal; }
+            get { return _OriginalSize; }
             set
             {
-                if (value == _MediaPathOriginal)
+                if (value == _OriginalSize)
                     return;
-                _MediaPathOriginal = value;
+                _OriginalSize = value;
+                RaisePropertyChanged();
+            }
+        }
+        private string _CompressedSize = "-";
+        public string CompressedSize
+        {
+            get { return _CompressedSize; }
+            set
+            {
+                if (value == _CompressedSize)
+                    return;
+                _CompressedSize = value;
                 RaisePropertyChanged();
             }
         }
@@ -74,6 +89,7 @@ namespace Recodite
         public Color StateColor { get; set; }
         public float Progress { get; set; }
         public TimeSpan Duration { get; set; }
+        public bool CanSave { get; set; } = false;
 
         public void SetState(AttachmentState State, float _Progress = 0)
         {
@@ -94,6 +110,8 @@ namespace Recodite
                         StateIcon = "\ue74b";
                         StateColor = Colors.SpringGreen;
                     }
+                    CanSave = File.Exists(MediaPath);
+                    RaisePropertyChanged(nameof(CanSave));
                     break;
                 case AttachmentState.Process:
                     StateText = $"Processing: {_Progress * 100:0}%";
@@ -153,22 +171,91 @@ namespace Recodite
             }
         }
 
+        public ICommand DeleteCommand { get; }
+        public ICommand SaveCommand { get; }
+
         string FFmpegPath = "";
 
         public MainPage()
         {
             InitializeComponent();
-            Loaded += async (_, _) =>
-            {
-                await ExtractFFmpeg();
-                AddAttachment(new FileInfo(@"BigBuckBunny.mp4"));
-            };
+            DeleteCommand = new Command<Attachment>(DeleteAttachment);
+            SaveCommand = new Command<Attachment>(SaveAttachment);
         }
+        //TODO: Add settings
+
+        private async void AppPage_Loaded(object sender, EventArgs e)
+        {
+            await ExtractFFmpeg();
+        }
+
+        private async void DeleteAttachment(Attachment _Attachment)
+        {
+            if (_Attachment == null)
+                return;
+            if (await DisplayAlertAsync("Remove file?", _Attachment.FileName, "Remove", "Cancel"))
+            {
+                MediaEntries.Remove(_Attachment);
+                if (CurrentEntry == _Attachment)
+                    CurrentEntry = null;
+            }
+        }
+
+        private async void SaveAttachment(Attachment _Attachment)
+        {
+            if (_Attachment == null || !File.Exists(_Attachment.MediaPath))
+                return;
+            using var Stream = File.OpenRead(_Attachment.MediaPath);
+            await FileSaver.Default.SaveAsync(Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed.mp4", Stream);
+        }
+
+        private async void InsertAttachmentButton_Clicked(object sender, EventArgs e)
+        {
+            try
+            {
+                IEnumerable<FileResult> Files = await FilePicker.Default.PickMultipleAsync(new PickOptions { FileTypes = FilePickerFileType.Videos });
+                if (Files != null && Files.Any())
+                {
+                    foreach (FileResult Video in Files)
+                        AddAttachment(new FileInfo(Video.FullPath));
+                }
+            }
+            catch { }
+        }
+
+        CancellationTokenSource CompressToken;
 
         private async void CompressButton_Clicked(object sender, EventArgs e)
         {
-            if (CurrentEntry != null)
-                await Compress(CurrentEntry);
+            if (!CompressButton.IsEnabled)
+                return;
+            CompressButton.IsEnabled = false;
+            CompressToken = new CancellationTokenSource();
+            //TODO: Add individual cancel button
+            try
+            {
+                if (CurrentEntry == null)
+                    ConvertMenu.SelectedItem = MediaEntries.FirstOrDefault();
+                foreach (Attachment _Attachment in MediaEntries)
+                {
+                    if (string.IsNullOrEmpty(_Attachment.StateText))
+                        _Attachment.SetState(AttachmentState.Pending);
+                }
+
+                foreach (Attachment _Attachment in MediaEntries)
+                {
+                    if (CompressToken.IsCancellationRequested)
+                        break;
+                    if (!string.IsNullOrEmpty(_Attachment.StateText) && _Attachment.StateText != "Pending")
+                        continue;
+                    await Compress(_Attachment);
+                }
+            }
+            finally
+            {
+                CompressButton.IsEnabled = true;
+                CompressToken = null;
+            }
         }
 
         public async Task Compress(Attachment _Attachment)
@@ -178,8 +265,7 @@ namespace Recodite
 
             await Task.Run(() =>
             {
-                //TODO: Investigate file size expansion anomaly
-                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v libx264 -preset veryfast -vf scale=-2:720 -b:v {GetTargetVideoBitrate(_Attachment.Duration, TargetSizeMB: 10)}";
+                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v libx264 -preset veryfast -vf scale=-2:720 -b:v {GetTargetVideoBitrate(_Attachment.Duration, TargetSizeMB: 9)}";
                 string NullDevice = OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
                 RunFFmpeg($"-y {Arguments} -pass 1 -an -f mp4 {NullDevice}");
                 RunFFmpeg(
@@ -194,12 +280,12 @@ namespace Recodite
                         TimeSpan Current = new(0, int.Parse(_Match.Groups[1].Value), int.Parse(_Match.Groups[2].Value), (int)double.Parse(_Match.Groups[3].Value));
                         float Progress = (float)(Current.TotalSeconds / _Attachment.Duration.TotalSeconds);
                         Progress = Math.Clamp(Progress, 0f, 1f);
-                        long OriginalBytes = new FileInfo(_Attachment.MediaPathOriginal).Length;
                         long CurrentBytes = File.Exists(Output) ? new FileInfo(Output).Length : 0;
+                        _Attachment.CompressedSize = $"{CurrentBytes / 1024f / 1024f:0.0}";
                         MainThread.BeginInvokeOnMainThread(() =>
                         {
                             _Attachment.SetState(AttachmentState.Process, Progress);
-                            _Attachment.SubText = $"{OriginalBytes / 1024f / 1024f:0.0} MB 🡢 {CurrentBytes / 1024f / 1024f:0.0} MB";
+                            _Attachment.SubText = $"{_Attachment.OriginalSize} MB 🡢 {_Attachment.CompressedSize} MB";
                         });
                     }
                 );
@@ -249,7 +335,7 @@ namespace Recodite
         long GetTargetVideoBitrate(TimeSpan Duration, int TargetSizeMB, int AudioBitrateKbps = 128)
         {
             long TargetBytes = TargetSizeMB * 1024L * 1024L;
-            double TotalBitrate = (TargetBytes * 8d) / Duration.TotalSeconds;
+            double TotalBitrate = TargetBytes * 8d / Duration.TotalSeconds;
             long VideoBitrate = (long)(TotalBitrate - AudioBitrateKbps * 1000);
             return Math.Max(VideoBitrate, 300_000);
         }
@@ -285,14 +371,15 @@ namespace Recodite
                 FileName = File.Name,
                 MediaPath = File.FullName,
                 MediaPathOriginal = File.FullName,
-                SubText = $"{File.Length / 1024f / 1024f:0.0} MB"
+                OriginalSize = $"{File.Length / 1024f / 1024f:0.0}",
             };
+            _Attachment.SubText = $"{_Attachment.OriginalSize} MB";
             _Attachment.Duration = GetDuration(_Attachment.MediaPath);
             MediaEntries.Add(_Attachment);
-            _Attachment.Thumbnail = await GenerateThumbnail(File.FullName);
+            _Attachment.Thumbnail = await GetThumbnail(_Attachment.MediaPath);
         }
 
-        async Task<ImageSource?> GenerateThumbnail(string VideoPath)
+        async Task<ImageSource?> GetThumbnail(string VideoPath)
         {
             string ThumbnailPath = Path.Combine(FileSystem.CacheDirectory, Path.GetFileNameWithoutExtension(VideoPath) + "_thumbnail.jpg");
             if (File.Exists(ThumbnailPath))
@@ -319,10 +406,8 @@ namespace Recodite
             return ImageSource.FromFile(ThumbnailPath);
         }
 
-        private void ConvertMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
+        private void ConvertMenu_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
             CurrentEntry = e.CurrentSelection.FirstOrDefault() as Attachment;
-        }
 
         private float GetCompressionRatio(Attachment _Attachment) =>
             1f - ((float)new FileInfo(_Attachment.MediaPath).Length / new FileInfo(_Attachment.MediaPathOriginal).Length);
