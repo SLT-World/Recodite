@@ -28,7 +28,7 @@
     <Color x:Key="Gray950">#141414</Color>
 
     <SolidColorBrush x:Key="PrimaryBrush" Color="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"/>
-    <SolidColorBrush x:Key="SecondaryBrush" Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource OffBlack}}"/>
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{AppThemeBinding Light=Whitesmoke, Dark={StaticResource OffBlack}}"/>
     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
     <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}"/>
     <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}"/>

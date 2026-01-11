@@ -19,10 +19,10 @@
         </ResourceDictionary>
     </ContentPage.Resources>
     <Grid ColumnDefinitions="Auto,1,Auto,1,*" Background="{StaticResource SecondaryBrush}">
-        <Grid x:Name="OptionsMenu" IsVisible="False" RowDefinitions="Auto,0,*" WidthRequest="400" Background="{StaticResource SecondaryBrush}">
+        <Grid x:Name="OptionsMenu" IsVisible="False" RowDefinitions="Auto,0,*" WidthRequest="400" Background="{StaticResource PrimaryBrush}">
             <ScrollView Grid.Row="2" Padding="10">
                 <VerticalStackLayout Spacing="10">
-                    <Border HeightRequest="400" Background="{StaticResource SecondaryBrush}" StrokeThickness="0" StrokeShape="RoundRectangle 5">
+                    <Border HeightRequest="600" Background="{StaticResource SecondaryBrush}" Stroke="{StaticResource SecondaryBrush}" StrokeThickness="0.2" StrokeShape="RoundRectangle 5">
                         <Grid ColumnDefinitions="Auto,1,*" RowDefinitions="*,1,Auto">
                             <Border Background="{StaticResource PrimaryBrush}" Padding="10,5" StrokeThickness="0">
                                 <CollectionView SelectionMode="Single" SelectionChanged="PresetsMenu_SelectionChanged" x:Name="PresetsMenu" ItemsSource="{Binding Presets}">
@@ -82,6 +82,15 @@
                                             <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe8d6;" ToolTipProperties.Text="Remove Audio" Style="{StaticResource SubHeadline}"/>
                                             <Switch MinimumWidthRequest="0" Grid.Column="2" IsToggled="{Binding Mute, Mode=TwoWay}"/>
                                             <Label VerticalOptions="Center" Grid.Column="4" Text="Remove Audio" Style="{StaticResource Headline}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,10,Auto,10,*">
+                                            <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xeea0;" ToolTipProperties.Text="Hardware Acceleration" Style="{StaticResource SubHeadline}"/>
+                                            <Switch MinimumWidthRequest="0" Grid.Column="2" IsToggled="{Binding HardwareAcceleration, Mode=TwoWay}"/>
+                                            <Label VerticalOptions="Center" Grid.Column="4" Text="Hardware Acceleration" Style="{StaticResource Headline}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="Auto,10,*">
+                                            <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe8b2;" ToolTipProperties.Text="Video Profile" Style="{StaticResource SubHeadline}"/>
+                                            <Picker Grid.Column="2" ItemsSource="{Binding VideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding SelectedVideoProfile, Mode=TwoWay}" HeightRequest="30"/>
                                         </Grid>
                                     </VerticalStackLayout>
                                 </Grid>
@@ -148,11 +157,7 @@
                                             </Grid>
                                         </Border>
                                         <HorizontalStackLayout Grid.Column="2" Spacing="10">
-                                            <Picker IsVisible="{Binding CanModify}"
-    ItemsSource="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.Presets}"
-    SelectedItem="{Binding Preset, Mode=TwoWay}"
-    ItemDisplayBinding="{Binding Name}"
-    HeightRequest="30"/>
+                                            <Picker IsVisible="{Binding CanModify}" ItemsSource="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.Presets}" SelectedItem="{Binding Preset, Mode=TwoWay}" ItemDisplayBinding="{Binding Name}" HeightRequest="30"/>
                                             <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
                                             <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.CancelCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanCancel}" Style="{StaticResource SmallIconButton}" Text="&#xe711;" ToolTipProperties.Text="Cancel"></Button>
                                             <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>

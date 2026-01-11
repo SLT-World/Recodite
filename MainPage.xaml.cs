@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 
@@ -35,6 +36,17 @@ namespace Recodite
         Slowest = 4
     }
 
+    public enum VideoProfile
+    {
+        Auto = 0,
+        MP4_H264 = 10,
+        MP4_H265 = 11,
+        WebM_VP9 = 20,
+        WebM_AV1 = 21,
+        GIF = 100,
+        WebP = 101,
+    }
+
     public class CompressionPreset : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged = delegate { };
@@ -45,7 +57,7 @@ namespace Recodite
         private string _Name = "";
         public string Name
         {
-            get { return _Name; }
+            get => _Name;
             set
             {
                 if (value == _Name || value.Length == 0)
@@ -59,7 +71,7 @@ namespace Recodite
         private int _TargetSizeMB = 8;
         public int TargetSizeMB
         {
-            get { return _TargetSizeMB; }
+            get => _TargetSizeMB;
             set
             {
                 if (value == _TargetSizeMB)
@@ -71,7 +83,7 @@ namespace Recodite
         private CompressionSpeed _Speed = CompressionSpeed.Fastest;
         public CompressionSpeed Speed
         {
-            get { return _Speed; }
+            get => _Speed;
             set
             {
                 if (value == _Speed)
@@ -83,7 +95,7 @@ namespace Recodite
         private bool _Mute = false;
         public bool Mute
         {
-            get { return _Mute; }
+            get => _Mute;
             set
             {
                 if (value == _Mute)
@@ -95,7 +107,7 @@ namespace Recodite
         private bool _Default = false;
         public bool Default
         {
-            get { return _Default; }
+            get => _Default;
             set
             {
                 if (value == _Default)
@@ -104,7 +116,37 @@ namespace Recodite
                 RaisePropertyChanged();
             }
         }
+        private bool _HardwareAcceleration = true;
+        public bool HardwareAcceleration
+        {
+            get => _HardwareAcceleration;
+            set
+            {
+                if (value == _HardwareAcceleration)
+                    return;
+                _HardwareAcceleration = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        [JsonIgnore]
+        public IReadOnlyList<VideoProfileInfo> VideoProfiles => MainPage.AllVideoProfiles;
+
+        private VideoProfileInfo _SelectedVideoProfile = MainPage.AllVideoProfiles.First(i => i.Profile == VideoProfile.Auto);
+        public VideoProfileInfo SelectedVideoProfile
+        {
+            get => _SelectedVideoProfile;
+            set
+            {
+                if (_SelectedVideoProfile == value)
+                    return;
+                _SelectedVideoProfile = value;
+                RaisePropertyChanged();
+            }
+        }
     }
+
+    public record VideoProfileInfo(VideoProfile Profile, string DisplayName, string Container, string Codec);
 
     public class Attachment : INotifyPropertyChanged
     {
@@ -196,6 +238,19 @@ namespace Recodite
         public bool CanModify { get; set; } = true;
         public CancellationTokenSource? CancellationTokenSource { get; set; }
 
+        //TODO: Add picker for entries
+        private VideoProfileInfo _SelectedVideoProfile { get; set; }
+        public VideoProfileInfo LocalVideoProfile
+        {
+            get => _SelectedVideoProfile;
+            set
+            {
+                if (_SelectedVideoProfile == value)
+                    return;
+                _SelectedVideoProfile = value;
+                RaisePropertyChanged();
+            }
+        }
         public void SetState(AttachmentState State, float _Progress = 0)
         {
             Progress = _Progress;
@@ -278,6 +333,16 @@ namespace Recodite
         private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
             PropertyChanged(this, new PropertyChangedEventArgs(Name));
         #endregion
+        public static readonly IReadOnlyList<VideoProfileInfo> AllVideoProfiles =
+        [
+            new(VideoProfile.Auto, "Auto", "", ""),
+            new(VideoProfile.MP4_H264, "MP4 (H.264)", "mp4", "libx264"),
+            new(VideoProfile.MP4_H265, "MP4 (H.265 / HEVC)", "mp4", "libx265"),
+            new(VideoProfile.WebM_VP9, "WebM (VP9)", "webm", "libvpx-vp9"),
+            new(VideoProfile.WebM_AV1, "WebM (AV1)", "webm", "libaom-av1"),
+            new(VideoProfile.GIF, "GIF (Animated)", "gif", "gif"),
+            new(VideoProfile.WebP, "WebP (Animated)", "webp", "libwebp"),
+        ];
         private string PresetsPath => Path.Combine(FileSystem.AppDataDirectory, "presets.json");
         public bool CanCompress => MediaEntries.Any() && MediaEntries.Any(a => string.IsNullOrEmpty(a.StateText));
         public bool CanRemovePresets => Presets.Any() && Presets.Count > 1;
@@ -388,6 +453,7 @@ namespace Recodite
 
         string CompressioSpeedToFFmpegPreset(CompressionSpeed Speed)
         {
+            //https://superuser.com/questions/490683/cheat-sheets-and-preset-settings-that-actually-work-with-ffmpeg-1-0
             switch (Speed)
             {
                 case CompressionSpeed.Fastest: return "veryfast";
@@ -422,7 +488,7 @@ namespace Recodite
             if (_Attachment == null || !File.Exists(_Attachment.MediaPath))
                 return;
             using var Stream = File.OpenRead(_Attachment.MediaPath);
-            await FileSaver.Default.SaveAsync(Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed.mp4", Stream);
+            await FileSaver.Default.SaveAsync(Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed." + _Attachment.LocalVideoProfile.Container, Stream);
         }
 
         private async void CancelAttachment(Attachment _Attachment)
@@ -475,51 +541,134 @@ namespace Recodite
             }
             if (_Attachment.StateText != "Pending")
                 return;
-            string Output = Path.Combine(FileSystem.CacheDirectory, Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed.mp4");
+            string Output = Path.Combine(FileSystem.CacheDirectory, Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed." + _Attachment.LocalVideoProfile.Container);
             _Attachment.SetState(AttachmentState.Process, 0f);
 
             _Attachment.CancellationTokenSource = new CancellationTokenSource();
 
             await Task.Run(() =>
             {
-                string AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a aac -b:a 128k";
-                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v libx264 -preset {CompressioSpeedToFFmpegPreset(_Attachment.Preset.Speed)} -vf scale=-2:720 -b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
-                string NullDevice = OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
-                RunFFmpeg($"-y {Arguments} -pass 1 {AudioArguments} -f mp4 {NullDevice}", _Attachment);
-                RunFFmpeg(
-                    $"-y {Arguments} -pass 2 {AudioArguments} \"{Output}\"",
-                    _Attachment,
-                    StandardError =>
+                string Codec = _Attachment.LocalVideoProfile.Codec;
+                if (_Attachment.Preset.HardwareAcceleration)
+                {
+#if WINDOWS
+                    Codec = _Attachment.LocalVideoProfile.Profile switch
                     {
-                        if (_Attachment.Duration.TotalSeconds <= 0)
-                            return;
-                        Match _Match = Regex.Match(StandardError, @"time=(\d+):(\d+):(\d+.\d+)");
-                        if (!_Match.Success)
-                            return;
-                        TimeSpan Current = new(0, int.Parse(_Match.Groups[1].Value), int.Parse(_Match.Groups[2].Value), (int)double.Parse(_Match.Groups[3].Value));
-                        float Progress = (float)(Current.TotalSeconds / _Attachment.Duration.TotalSeconds);
-                        Progress = Math.Clamp(Progress, 0f, 1f);
-                        long CurrentBytes = File.Exists(Output) ? new FileInfo(Output).Length : 0;
-                        _Attachment.CompressedSize = $"{CurrentBytes / 1024f / 1024f:0.0}";
-                        MainThread.BeginInvokeOnMainThread(() =>
-                        {
-                            _Attachment.SetState(AttachmentState.Process, Progress);
-                            _Attachment.SubText = $"{_Attachment.OriginalSize} MB 🡢 {_Attachment.CompressedSize} MB";
-                        });
-                    }
-                );
+                        VideoProfile.MP4_H264 => "h264_nvenc",
+                        VideoProfile.MP4_H265 => "hevc_nvenc",
+                        _ => Codec
+                    };
+#elif IOS || MACCATALYST
+                    Codec = _Attachment.LocalVideoProfile.Profile switch
+                    {
+                        VideoProfile.MP4_H264 => "h264_videotoolbox",
+                        VideoProfile.MP4_H265 => "hevc_videotoolbox",
+                        _ => Codec
+                    };
+#else
+                    Codec = _Attachment.LocalVideoProfile.Profile switch
+                    {
+                        VideoProfile.MP4_H264 => "h264_vaapi",
+                        VideoProfile.MP4_H265 => "hevc_vaapi",
+                        _ => Codec
+                    };
+#endif
+                }
+
+                string AudioArguments;
+                if (_Attachment.LocalVideoProfile.Container == "webm")
+                    AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a libopus";
+                else
+                    AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a aac -b:a 128k";
+                string PresetArguments = "";
+                if (!_Attachment.Preset.HardwareAcceleration)
+                {
+                    PresetArguments = $"-preset {CompressioSpeedToFFmpegPreset(_Attachment.Preset.Speed)}";
+                    if (_Attachment.LocalVideoProfile.Container == "webm")
+                        PresetArguments = "-deadline good -cpu-used 4";
+                }
+                string VideoRateArguments;
+                if (_Attachment.LocalVideoProfile.Container == "webm")
+                    VideoRateArguments = "-crf 32 -b:v 0";
+                else
+                    VideoRateArguments = $"-b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
+                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v {Codec} {PresetArguments} -vf \"scale='min(720,iw)':-2\" {VideoRateArguments}";
+
+#if WINDOWS
+                string NullDevice = "NUL";
+#else
+                string NullDevice =  "/dev/null";
+#endif
+                Action<string>? OnStandardError = StandardError =>
+                {
+                    if (_Attachment.Duration.TotalSeconds <= 0)
+                        return;
+                    Match _Match = Regex.Match(StandardError, @"time=(\d+):(\d+):(\d+.\d+)");
+                    if (!_Match.Success)
+                        return;
+                    TimeSpan Current = new(0, int.Parse(_Match.Groups[1].Value), int.Parse(_Match.Groups[2].Value), (int)double.Parse(_Match.Groups[3].Value));
+                    float Progress = (float)(Current.TotalSeconds / _Attachment.Duration.TotalSeconds);
+                    Progress = Math.Clamp(Progress, 0f, 1f);
+                    long CurrentBytes = File.Exists(Output) ? new FileInfo(Output).Length : 0;
+                    _Attachment.CompressedSize = $"{CurrentBytes / 1024f / 1024f:0.0}";
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        _Attachment.SetState(AttachmentState.Process, Progress);
+                        _Attachment.SubText = $"{_Attachment.OriginalSize} MB 🡢 {_Attachment.CompressedSize} MB";
+                    });
+                };
+
+                if (_Attachment.LocalVideoProfile.Profile == VideoProfile.GIF)
+                {
+                    string Palette = Path.Combine(FileSystem.CacheDirectory, Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_palette.png");
+
+                    RunFFmpeg($"-y -i \"{_Attachment.MediaPath}\" -vf \"fps=15,scale='min(480,iw)':-1:flags=lanczos,palettegen\" \"{Palette}\"", _Attachment);
+                    while (!File.Exists(Palette)) Thread.Sleep(10);
+                    _Attachment.SetState(AttachmentState.Process, 0.5f);
+                    RunFFmpeg($"-y -i \"{_Attachment.MediaPath}\" -i \"{Palette}\" -filter_complex \"fps=15,scale='min(480,iw)':-1:flags=lanczos[x];[x][1:v]paletteuse\" \"{Output}\"", _Attachment);
+
+                    _Attachment.MediaPath = Output;
+
+                    long CurrentBytes = File.Exists(Output) ? new FileInfo(Output).Length : 0;
+                    _Attachment.CompressedSize = $"{CurrentBytes / 1024f / 1024f:0.0}";
+                    _Attachment.SubText = $"{_Attachment.OriginalSize} MB 🡢 {_Attachment.CompressedSize} MB";
+
+                    _Attachment.SetState(AttachmentState.Complete, 1f);
+
+                    TryDelete(Palette);
+                    return;
+                }
+                else if (_Attachment.LocalVideoProfile.Profile == VideoProfile.WebP)
+                    RunFFmpeg($"-y -i \"{_Attachment.MediaPath}\" -c:v libwebp_anim -loop 0 -an -q:v 75 -vf \"fps=15,scale='min(480,iw)':-1:flags=lanczos\" \"{Output}\"", _Attachment, OnStandardError);
+                else
+                {
+                    bool UseTwoPass = !_Attachment.Preset.HardwareAcceleration && _Attachment.LocalVideoProfile.Codec.StartsWith("lib") && _Attachment.LocalVideoProfile.Container != "webm";
+                    string TwoPassArguments = UseTwoPass ? "-pass 2" : "";
+
+                    if (UseTwoPass)
+                        RunFFmpeg($"-y {Arguments} -pass 1 {AudioArguments} -f {_Attachment.LocalVideoProfile.Container} {NullDevice}", _Attachment);
+
+                    RunFFmpeg($"-y {Arguments} {TwoPassArguments} {AudioArguments} \"{Output}\"", _Attachment, OnStandardError);
+                }
             });
 
             if (_Attachment.StateText.StartsWith("Processing"))
             {
                 _Attachment.MediaPath = Output;
+                _Attachment.SubText = $"{_Attachment.OriginalSize} MB 🡢 {_Attachment.CompressedSize} MB";
                 _Attachment.SetState(AttachmentState.Complete, GetCompressionRatio(_Attachment));
             }
 
+            TryDelete("ffmpeg2pass-0.log");
+            TryDelete("ffmpeg2pass-0.log.mbtree");
+        }
+
+        void TryDelete(string Path)
+        {
             try
             {
-                File.Delete("ffmpeg2pass-0.log");
-                File.Delete("ffmpeg2pass-0.log.mbtree");
+                if (File.Exists(Path))
+                    File.Delete(Path);
             }
             catch { }
         }
@@ -613,22 +762,24 @@ namespace Recodite
         {
             Attachment _Attachment = new()
             {
-                FileName = File.Name,
+                FileName = Path.GetFileNameWithoutExtension(File.Name),
                 MediaPath = File.FullName,
                 MediaPathOriginal = File.FullName,
                 OriginalSize = $"{File.Length / 1024f / 1024f:0.0}",
                 Preset = DefaultPreset
             };
-            _Attachment.PropertyChanged += (_, e) =>
-            {
-                RaisePropertyChanged(nameof(CanCompress));
-            };
+            string Extension = Path.GetExtension(_Attachment.MediaPath).ToLowerInvariant();
+            _Attachment.LocalVideoProfile = DefaultPreset.SelectedVideoProfile.Profile != VideoProfile.Auto ? DefaultPreset.SelectedVideoProfile : AllVideoProfiles.FirstOrDefault(p => "." + p.Container == Extension) ?? AllVideoProfiles.First(p => p.Profile == VideoProfile.MP4_H264);
             _Attachment.SubText = $"{_Attachment.OriginalSize} MB";
             _Attachment.Duration = GetDuration(_Attachment.MediaPath);
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 MediaEntries.Add(_Attachment);
             });
+            _Attachment.PropertyChanged += (_, e) =>
+            {
+                RaisePropertyChanged(nameof(CanCompress));
+            };
             _Attachment.Thumbnail = await GetThumbnail(_Attachment.MediaPath);
             ConvertMenuPlaceholder.IsVisible = false;
         }
@@ -668,13 +819,13 @@ namespace Recodite
 
         async Task ExtractFFmpeg()
         {
-            string FilePath = "";
-            if (OperatingSystem.IsWindows())
-                FilePath = Path.Combine("ffmpeg", "windows", "ffmpeg.exe");
-            else if (OperatingSystem.IsMacOS())
-                FilePath = Path.Combine("ffmpeg", "macos", "ffmpeg");
-            //else if (OperatingSystem.IsLinux())
-            //    FilePath = Path.Combine("ffmpeg", "linux", "ffmpeg");
+#if WINDOWS
+            string FilePath = Path.Combine("ffmpeg", "windows", "ffmpeg.exe");
+#elif IOS || MACCATALYST
+            string FilePath = Path.Combine("ffmpeg", "macos", "ffmpeg");
+#else
+            string FilePath = Path.Combine("ffmpeg", "linux", "ffmpeg");
+#endif
             FFmpegPath = Path.Combine(FileSystem.AppDataDirectory, FilePath);
             if (File.Exists(FFmpegPath))
                 return;
@@ -682,8 +833,9 @@ namespace Recodite
             using var Stream = await FileSystem.OpenAppPackageFileAsync(FilePath);
             using var _File = File.Create(FFmpegPath);
             await Stream.CopyToAsync(_File);
-            if (!OperatingSystem.IsWindows())
+#if !WINDOWS
                 Process.Start("chmod", $"+x \"{FFmpegPath}\"")?.WaitForExit();
+#endif
         }
 
         static readonly string[] SupportedExtensions =
