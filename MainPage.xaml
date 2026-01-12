@@ -104,6 +104,8 @@
                             </HorizontalStackLayout>
                         </Grid>
                     </Border>
+                    <Button Clicked="ImportPresetButton_Clicked" Text="Import Preset"></Button>
+
                 </VerticalStackLayout>
             </ScrollView>
         </Grid>

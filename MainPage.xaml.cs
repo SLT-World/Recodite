@@ -741,7 +741,7 @@ namespace Recodite
                         VideoRateArguments = "-crf 32 -b:v 0";
                     else
                         VideoRateArguments = $"-b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
-                    string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v {Codec} {PresetArguments} -vf \"scale='min(720,iw)':-2,format=yuv420p\" {VideoRateArguments}";
+                    string Arguments = $"-y -i \"{_Attachment.MediaPath}\" -c:v {Codec} {PresetArguments} -vf \"scale='min(720,iw)':-2,format=yuv420p\" {VideoRateArguments}";
                     //bool UseTwoPass = !_Attachment.Preset.HardwareAcceleration && _Attachment.LocalVideoProfile.Codec.StartsWith("lib") && _Attachment.LocalVideoProfile.Container != "webm";
                     bool UseTwoPass = _Attachment.LocalVideoProfile.Codec.StartsWith("lib") && _Attachment.LocalVideoProfile.Container != "webm";
                     string TwoPassArguments = UseTwoPass ? "-pass 2" : "";
@@ -753,9 +753,9 @@ namespace Recodite
 #else
                         string NullDevice = "/dev/null";
 #endif
-                        RunFFmpeg($"-y {Arguments} -pass 1 {AudioArguments} -f {_Attachment.LocalVideoProfile.Container} {NullDevice}", _Attachment);
+                        RunFFmpeg($"{Arguments} -pass 1 -an -f {_Attachment.LocalVideoProfile.Container} {NullDevice}", _Attachment);
                     }
-                    RunFFmpeg($"-y {Arguments} {TwoPassArguments} {AudioArguments} \"{Output}\"", _Attachment, OnStandardError);
+                    RunFFmpeg($"{Arguments} {TwoPassArguments} {AudioArguments} \"{Output}\"", _Attachment, OnStandardError);
                 }
             });
 
@@ -1072,9 +1072,39 @@ namespace Recodite
         private void AddPresetButton_Clicked(object sender, EventArgs e)
         {
             CompressionPreset Preset = GeneratePreset("New Preset", 10, CompressionSpeed.Fastest);
+            Preset.Default = false;
             Presets.Add(Preset);
             PresetsMenu.SelectedItem = Preset;
             RaisePropertyChanged(nameof(CanRemovePresets));
+        }
+
+        private async void ImportPresetButton_Clicked(object sender, EventArgs e)
+        {
+            try
+            {
+                IEnumerable<FileResult> Files = await FilePicker.Default.PickMultipleAsync(new PickOptions { FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+#if WINDOWS
+                        { DevicePlatform.WinUI, ["json"] },
+#elif IOS || MACCATALYST
+                        { DevicePlatform.macOS, ["json"] },
+#endif
+                    })
+                });
+                if (Files != null && Files.Any())
+                {
+                    foreach (FileResult PresetFile in Files)
+                    {
+                        CompressionPreset LoadedPreset = JsonSerializer.Deserialize<CompressionPreset>(File.ReadAllText(PresetFile.FullPath));
+                        if (LoadedPreset == null)
+                            continue;
+                        LoadedPreset.PropertyChanged += (_, e) => SavePresets();
+                        Presets.Add(LoadedPreset);
+                    }    
+                }
+            }
+            catch { }
+            
         }
 
         private async void ExportPresetButton_Clicked(object sender, EventArgs e)
