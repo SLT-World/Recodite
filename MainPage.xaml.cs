@@ -1,8 +1,10 @@
-﻿using CommunityToolkit.Maui.Storage;
+﻿using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Storage;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
@@ -163,7 +165,18 @@ namespace Recodite
                 RaisePropertyChanged();
             }
         }
-        public string MediaPathOriginal = "";
+        private string _OriginalMediaPath = "";
+        public string OriginalMediaPath
+        {
+            get { return _OriginalMediaPath; }
+            set
+            {
+                if (value == _OriginalMediaPath)
+                    return;
+                _OriginalMediaPath = value;
+                RaisePropertyChanged();
+            }
+        }
         private string _OriginalSize = "";
         public string OriginalSize
         {
@@ -558,51 +571,6 @@ namespace Recodite
 
             await Task.Run(() =>
             {
-                string Codec = _Attachment.LocalVideoProfile.Codec;
-                if (_Attachment.Preset.HardwareAcceleration)
-                {
-#if WINDOWS
-                    Codec = _Attachment.LocalVideoProfile.Profile switch
-                    {
-                        VideoProfile.MP4_H264 => "h264_nvenc",
-                        VideoProfile.MP4_H265 => "hevc_nvenc",
-                        _ => Codec
-                    };
-#elif IOS || MACCATALYST
-                    Codec = _Attachment.LocalVideoProfile.Profile switch
-                    {
-                        VideoProfile.MP4_H264 => "h264_videotoolbox",
-                        VideoProfile.MP4_H265 => "hevc_videotoolbox",
-                        _ => Codec
-                    };
-#else
-                    Codec = _Attachment.LocalVideoProfile.Profile switch
-                    {
-                        VideoProfile.MP4_H264 => "h264_vaapi",
-                        VideoProfile.MP4_H265 => "hevc_vaapi",
-                        _ => Codec
-                    };
-#endif
-                }
-
-                string AudioArguments;
-                if (_Attachment.LocalVideoProfile.Container == "webm")
-                    AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a libopus";
-                else
-                    AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a aac -b:a 128k";
-                string PresetArguments = "";
-                if (!_Attachment.Preset.HardwareAcceleration)
-                {
-                    PresetArguments = $"-preset {CompressioSpeedToFFmpegPreset(_Attachment.Preset.Speed)}";
-                    if (_Attachment.LocalVideoProfile.Container == "webm")
-                        PresetArguments = "-deadline good -cpu-used 4";
-                }
-                string VideoRateArguments;
-                if (_Attachment.LocalVideoProfile.Container == "webm")
-                    VideoRateArguments = "-crf 32 -b:v 0";
-                else
-                    VideoRateArguments = $"-b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
-                string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v {Codec} {PresetArguments} -vf \"scale='min(720,iw)':-2\" {VideoRateArguments}";
                 Action<string>? OnStandardError = StandardError =>
                 {
                     if (_Attachment.Duration.TotalSeconds <= 0)
@@ -646,7 +614,57 @@ namespace Recodite
                     RunFFmpeg($"-y -i \"{_Attachment.MediaPath}\" -c:v libwebp_anim -loop 0 -an -q:v 75 -vf \"fps=15,scale='min(480,iw)':-1:flags=lanczos\" \"{Output}\"", _Attachment, OnStandardError);
                 else
                 {
-                    bool UseTwoPass = !_Attachment.Preset.HardwareAcceleration && _Attachment.LocalVideoProfile.Codec.StartsWith("lib") && _Attachment.LocalVideoProfile.Container != "webm";
+                    string Codec = _Attachment.LocalVideoProfile.Codec;
+                    /*if (_Attachment.Preset.HardwareAcceleration)
+                    {
+#if WINDOWS
+                    Codec = _Attachment.LocalVideoProfile.Profile switch
+                    {
+                        VideoProfile.MP4_H264 => "h264_nvenc",
+                        VideoProfile.MP4_H265 => "hevc_nvenc",
+                        _ => Codec
+                    };
+#elif IOS || MACCATALYST
+                    Codec = _Attachment.LocalVideoProfile.Profile switch
+                    {
+                        VideoProfile.MP4_H264 => "h264_videotoolbox",
+                        VideoProfile.MP4_H265 => "hevc_videotoolbox",
+                        _ => Codec
+                    };
+#else
+                        Codec = _Attachment.LocalVideoProfile.Profile switch
+                        {
+                            VideoProfile.MP4_H264 => "h264_vaapi",
+                            VideoProfile.MP4_H265 => "hevc_vaapi",
+                            _ => Codec
+                        };
+#endif
+                    }*/
+
+                    string AudioArguments;
+                    if (_Attachment.LocalVideoProfile.Container == "webm")
+                        AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a libopus";
+                    else
+                        AudioArguments = _Attachment.Preset.Mute ? "-an" : "-c:a aac -b:a 128k";
+                    /*string PresetArguments = "";
+                    if (!_Attachment.Preset.HardwareAcceleration)
+                    {
+                        PresetArguments = $"-preset {CompressioSpeedToFFmpegPreset(_Attachment.Preset.Speed)}";
+                        if (_Attachment.LocalVideoProfile.Container == "webm")
+                            PresetArguments = "-deadline good -cpu-used 4";
+                    }*/
+                    string PresetArguments = $"-preset {CompressioSpeedToFFmpegPreset(_Attachment.Preset.Speed)}";
+                    if (_Attachment.LocalVideoProfile.Container == "webm")
+                        PresetArguments = "-deadline good -cpu-used 4";
+
+                    string VideoRateArguments;
+                    if (_Attachment.LocalVideoProfile.Container == "webm")
+                        VideoRateArguments = "-crf 32 -b:v 0";
+                    else
+                        VideoRateArguments = $"-b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
+                    string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v {Codec} {PresetArguments} -vf \"scale='min(720,iw)':-2,format=yuv420p\" {VideoRateArguments}";
+                    //bool UseTwoPass = !_Attachment.Preset.HardwareAcceleration && _Attachment.LocalVideoProfile.Codec.StartsWith("lib") && _Attachment.LocalVideoProfile.Container != "webm";
+                    bool UseTwoPass = _Attachment.LocalVideoProfile.Codec.StartsWith("lib") && _Attachment.LocalVideoProfile.Container != "webm";
                     string TwoPassArguments = UseTwoPass ? "-pass 2" : "";
 
                     if (UseTwoPass)
@@ -658,7 +676,6 @@ namespace Recodite
 #endif
                         RunFFmpeg($"-y {Arguments} -pass 1 {AudioArguments} -f {_Attachment.LocalVideoProfile.Container} {NullDevice}", _Attachment);
                     }
-
                     RunFFmpeg($"-y {Arguments} {TwoPassArguments} {AudioArguments} \"{Output}\"", _Attachment, OnStandardError);
                 }
             });
@@ -775,7 +792,7 @@ namespace Recodite
             {
                 FileName = Path.GetFileNameWithoutExtension(File.Name),
                 MediaPath = File.FullName,
-                MediaPathOriginal = File.FullName,
+                OriginalMediaPath = File.FullName,
                 OriginalSize = $"{File.Length / 1024f / 1024f:0.0}",
                 Preset = DefaultPreset,
                 OriginalExtension = Path.GetExtension(File.FullName).ToLowerInvariant().TrimStart('.')
@@ -826,7 +843,7 @@ namespace Recodite
             CurrentEntry = e.CurrentSelection.FirstOrDefault() as Attachment;
 
         private float GetCompressionRatio(Attachment _Attachment) =>
-            1f - ((float)new FileInfo(_Attachment.MediaPath).Length / new FileInfo(_Attachment.MediaPathOriginal).Length);
+            1f - ((float)new FileInfo(_Attachment.MediaPath).Length / new FileInfo(_Attachment.OriginalMediaPath).Length);
 
         async Task ExtractFFmpeg()
         {
@@ -954,6 +971,14 @@ namespace Recodite
             RaisePropertyChanged(nameof(CanRemovePresets));
         }
 
+        private async void ExportPresetButton_Clicked(object sender, EventArgs e)
+        {
+            if (CurrentPresetOptions == null)
+                return;
+            using MemoryStream Stream = new(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(CurrentPresetOptions, new JsonSerializerOptions { WriteIndented = true })));
+            await FileSaver.Default.SaveAsync($"{CurrentPresetOptions.Name} Preset.json", Stream);
+        }
+
         private async void RemovePresetButton_Clicked(object sender, EventArgs e)
         {
             if (CurrentPresetOptions == null || Presets.Count == 1)
@@ -974,6 +999,121 @@ namespace Recodite
             AllowPresetSelection = PreviousEnabled;
             PresetsMenu.SelectedItem = DefaultPreset;
             RaisePropertyChanged(nameof(CanRemovePresets));
+        }
+
+        private void CompareSlider_ValueChanged(object sender, ValueChangedEventArgs e)
+        {
+            UpdateCompare(e.NewValue);
+        }
+
+        private void CompareContainer_SizeChanged(object sender, EventArgs e)
+        {
+            UpdateCompare(CompareSlider.Value);
+        }
+
+        void UpdateCompare(double Percentage)
+        {
+            if (CompareContainer.Width <= 0 || CompareContainer.Height <= 0)
+                return;
+            double ClipWidth = CompareContainer.Width * Percentage;
+            
+            CompressedVideo.Clip = new Microsoft.Maui.Controls.Shapes.RectangleGeometry
+            {
+                Rect = new Rect(0, 0, ClipWidth, CompareContainer.Height)
+            };
+
+            Divider.TranslationX = ClipWidth;
+        }
+
+        private async void PlayButton_Clicked(object sender, EventArgs e)
+        {
+            if (CurrentPresetOptions == null)
+                return;
+            bool IsPlaying = OriginalVideo.CurrentState == MediaElementState.Playing;
+            if (IsPlaying)
+            {
+                try
+                {
+                    ToolTipProperties.SetText(PlayButton, "Play");
+                    PlayButton.Text = "\xe768";
+                }
+                catch { }
+                OriginalVideo.Pause();
+                CompressedVideo.Pause();
+            }
+            else
+            {
+                try
+                {
+                    ToolTipProperties.SetText(PlayButton, "Pause");
+                    PlayButton.Text = "\xe769";
+                }
+                catch { }
+                OriginalVideo.Play();
+                CompressedVideo.Play();
+            }
+        }
+
+        bool WasPlayingVideo = false;
+        bool AllowVideoDurationChange = false;
+
+        private void VideoDurationSlider_DragStarted(object sender, EventArgs e)
+        {
+            WasPlayingVideo = OriginalVideo.CurrentState == MediaElementState.Playing;
+            OriginalVideo.Pause();
+            CompressedVideo.Pause();
+        }
+
+        private void VideoDurationSlider_DragCompleted(object sender, EventArgs e)
+        {
+            TimeSpan Position = TimeSpan.FromSeconds(VideoDurationSlider.Value);
+            OriginalVideo.SeekTo(Position);
+            CompressedVideo.SeekTo(Position);
+            if (WasPlayingVideo)
+            {
+                OriginalVideo.Play();
+                CompressedVideo.Play();
+            }
+        }
+
+        private void OriginalVideo_MediaEnded(object sender, EventArgs e)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                try
+                {
+                    PlayButton.Text = "\xe768";
+                    ToolTipProperties.SetText(PlayButton, "Play");
+                }
+                catch { }
+            });
+        }
+
+        private void OriginalVideo_PositionChanged(object sender, MediaPositionChangedEventArgs e)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                AllowVideoDurationChange = false;
+                VideoDurationSlider.Value = e.Position.TotalSeconds;
+                AllowVideoDurationChange = true;
+            });
+        }
+
+        private void OriginalVideo_MediaOpened(object sender, EventArgs e)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                VideoDurationSlider.Maximum = OriginalVideo.Duration.TotalSeconds;
+            });
+        }
+
+        private void VideoDurationSlider_ValueChanged(object sender, ValueChangedEventArgs e)
+        {
+            if (!AllowVideoDurationChange)
+                return;
+            TimeSpan Position = TimeSpan.FromSeconds(VideoDurationSlider.Value);
+            OriginalVideo.SeekTo(Position);
+            CompressedVideo.SeekTo(Position);
         }
     }
 }

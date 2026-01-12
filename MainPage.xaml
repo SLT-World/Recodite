@@ -55,7 +55,6 @@
                             <Grid Background="{StaticResource PrimaryBrush}" Grid.Column="2">
                                 <Grid IsVisible="{Binding CurrentPresetOptions, Converter={StaticResource NullToBool}}">
                                     <VerticalStackLayout Padding="10" Spacing="10" BindingContext="{Binding CurrentPresetOptions}">
-                                        <Button Clicked="SetDefaultButton_Clicked" IsEnabled="{Binding Default, Converter={StaticResource OppositeBool}}" Text="Set Default"></Button>
                                         <Grid ColumnDefinitions="Auto,10,*">
                                             <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe70f;" ToolTipProperties.Text="Name" Style="{StaticResource SubHeadline}"/>
                                             <Entry Grid.Column="2" Keyboard="Numeric" Text="{Binding Name, Mode=TwoWay}">
@@ -85,7 +84,7 @@
                                         </Grid>
                                         <Grid ColumnDefinitions="Auto,10,Auto,10,*">
                                             <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xeea0;" ToolTipProperties.Text="Hardware Acceleration" Style="{StaticResource SubHeadline}"/>
-                                            <Switch MinimumWidthRequest="0" Grid.Column="2" IsToggled="{Binding HardwareAcceleration, Mode=TwoWay}"/>
+                                            <Switch MinimumWidthRequest="0" Grid.Column="2" IsEnabled="False" IsToggled="{Binding HardwareAcceleration, Mode=TwoWay}"/>
                                             <Label VerticalOptions="Center" Grid.Column="4" Text="Hardware Acceleration" Style="{StaticResource Headline}"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="Auto,10,*">
@@ -95,10 +94,14 @@
                                     </VerticalStackLayout>
                                 </Grid>
                             </Grid>
-                            <Grid Background="{StaticResource PrimaryBrush}" Padding="10" ColumnDefinitions="*,10,*" Grid.Row="2" Grid.ColumnSpan="3">
-                                <Button Clicked="AddPresetButton_Clicked" Text="Add"></Button>
-                                <Button Grid.Column="2" Clicked="RemovePresetButton_Clicked" Text="Remove" Background="Red"></Button>
+                            <Grid Background="{StaticResource PrimaryBrush}" Padding="10" Grid.Row="2">
+                                <Button Grid.Row="2" Background="{StaticResource SecondaryBrush}" Clicked="AddPresetButton_Clicked" Style="{StaticResource IconButton}" Text="&#xe710;" ToolTipProperties.Text="Add"></Button>
                             </Grid>
+                            <HorizontalStackLayout BindingContext="{Binding CurrentPresetOptions}" Spacing="10" Background="{StaticResource PrimaryBrush}" Padding="10" Grid.Column="2" Grid.Row="2">
+                                <Button Grid.Row="2" IsEnabled="{Binding Default, Converter={StaticResource OppositeBool}}" Background="{StaticResource SecondaryBrush}" TextColor="Red" Clicked="RemovePresetButton_Clicked" Style="{StaticResource IconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
+                                <Button Grid.Row="2" Background="{StaticResource SecondaryBrush}" Clicked="ExportPresetButton_Clicked" Style="{StaticResource IconButton}" Text="&#xe896;" ToolTipProperties.Text="Export"></Button>
+                                <Button Clicked="SetDefaultButton_Clicked" IsEnabled="{Binding Default, Converter={StaticResource OppositeBool}}" Text="Set Default"></Button>
+                            </HorizontalStackLayout>
                         </Grid>
                     </Border>
                 </VerticalStackLayout>
@@ -181,9 +184,18 @@
                     <VerticalStackLayout Spacing="10" Grid.Row="2" Padding="20,0" Background="{StaticResource PrimaryBrush}">
                         <Border HeightRequest="400" StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
                             <Border StrokeThickness="0" Stroke="Transparent" StrokeShape="RoundRectangle 5">
-                                <toolkit:MediaElement Source="{Binding MediaPath}"/>
+                                <Grid x:Name="CompareContainer" SizeChanged="CompareContainer_SizeChanged">
+                                    <toolkit:MediaElement Background="Black" ShouldShowPlaybackControls="False" x:Name="CompressedVideo" Source="{Binding MediaPath}"/>
+                                    <toolkit:MediaElement PositionChanged="OriginalVideo_PositionChanged" MediaEnded="OriginalVideo_MediaEnded" MediaOpened="OriginalVideo_MediaOpened" Background="Black" ShouldShowPlaybackControls="False" x:Name="OriginalVideo" Source="{Binding OriginalMediaPath}"/>
+                                    <Slider Margin="-10" x:Name="CompareSlider" Minimum="0" Maximum="1" Value="0.5" ValueChanged="CompareSlider_ValueChanged" VerticalOptions="Center" MaximumTrackColor="Transparent" MinimumTrackColor="Transparent"/>
+                                    <BoxView Margin="-1,0,0,0" IsEnabled="False" x:Name="Divider" WidthRequest="2" Color="White" HorizontalOptions="Start" VerticalOptions="Fill"/>
+                                </Grid>
                             </Border>
                         </Border>
+                        <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+                            <Button VerticalOptions="Center" Clicked="PlayButton_Clicked" x:Name="PlayButton" Style="{StaticResource IconButton}" Text="&#xe768;" ToolTipProperties.Text="Play"></Button>
+                            <Slider VerticalOptions="Center" ValueChanged="VideoDurationSlider_ValueChanged" Grid.Column="2" x:Name="VideoDurationSlider" Minimum="0" Value="0" DragStarted="VideoDurationSlider_DragStarted" DragCompleted="VideoDurationSlider_DragCompleted"/>
+                        </Grid>
                         <Grid ColumnDefinitions="*,10,*">
                             <Border StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
                                 <VerticalStackLayout Spacing="10">
