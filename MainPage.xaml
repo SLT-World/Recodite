@@ -185,16 +185,18 @@
                         <Border HeightRequest="400" StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
                             <Border StrokeThickness="0" Stroke="Transparent" StrokeShape="RoundRectangle 5">
                                 <Grid x:Name="CompareContainer" SizeChanged="CompareContainer_SizeChanged">
-                                    <toolkit:MediaElement Background="Black" ShouldShowPlaybackControls="False" x:Name="CompressedVideo" Source="{Binding MediaPath}"/>
-                                    <toolkit:MediaElement PositionChanged="OriginalVideo_PositionChanged" MediaEnded="OriginalVideo_MediaEnded" MediaOpened="OriginalVideo_MediaOpened" Background="Black" ShouldShowPlaybackControls="False" x:Name="OriginalVideo" Source="{Binding OriginalMediaPath}"/>
+                                    <Image Background="Black" x:Name="CompressedImage" Source="{Binding MediaPath}" IsVisible="{Binding IsImage}"/>
+                                    <toolkit:MediaElement ShouldLoopPlayback="{Binding IsImage}" MediaOpened="CompressedVideo_MediaOpened" Background="Black" IsVisible="{Binding IsImage, Converter={StaticResource OppositeBool}}" ShouldShowPlaybackControls="False" x:Name="CompressedVideo" Source="{Binding MediaPath}"/>
+                                    <Image Background="Black" x:Name="OriginalImage" Source="{Binding OriginalMediaPath}" IsVisible="{Binding OriginalIsImage}"/>
+                                    <toolkit:MediaElement ShouldLoopPlayback="{Binding IsImage}" PositionChanged="OriginalVideo_PositionChanged" IsVisible="{Binding OriginalIsImage, Converter={StaticResource OppositeBool}}" MediaEnded="OriginalVideo_MediaEnded" MediaOpened="OriginalVideo_MediaOpened" Background="Black" ShouldShowPlaybackControls="False" x:Name="OriginalVideo" Source="{Binding OriginalMediaPath}"/>
                                     <Slider Margin="-10" x:Name="CompareSlider" Minimum="0" Maximum="1" Value="0.5" ValueChanged="CompareSlider_ValueChanged" VerticalOptions="Center" MaximumTrackColor="Transparent" MinimumTrackColor="Transparent"/>
                                     <BoxView Margin="-1,0,0,0" IsEnabled="False" x:Name="Divider" WidthRequest="2" Color="White" HorizontalOptions="Start" VerticalOptions="Fill"/>
                                 </Grid>
                             </Border>
                         </Border>
                         <Grid ColumnDefinitions="Auto,10,*,10,Auto">
-                            <Button VerticalOptions="Center" Clicked="PlayButton_Clicked" x:Name="PlayButton" Style="{StaticResource IconButton}" Text="&#xe768;" ToolTipProperties.Text="Play"></Button>
-                            <Slider VerticalOptions="Center" ValueChanged="VideoDurationSlider_ValueChanged" Grid.Column="2" x:Name="VideoDurationSlider" Minimum="0" Value="0" DragStarted="VideoDurationSlider_DragStarted" DragCompleted="VideoDurationSlider_DragCompleted"/>
+                            <Button IsEnabled="{Binding IsImage, Converter={StaticResource OppositeBool}}" VerticalOptions="Center" Clicked="PlayButton_Clicked" x:Name="PlayButton" Style="{StaticResource IconButton}" Text="&#xe768;" ToolTipProperties.Text="Play"></Button>
+                            <Slider IsEnabled="{Binding IsImage, Converter={StaticResource OppositeBool}}" VerticalOptions="Center" ValueChanged="VideoDurationSlider_ValueChanged" Grid.Column="2" x:Name="VideoDurationSlider" Minimum="0" Value="0" DragStarted="VideoDurationSlider_DragStarted" DragCompleted="VideoDurationSlider_DragCompleted"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,10,*">
                             <Border StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
@@ -228,7 +230,7 @@
                                     </Grid>
                                     <HorizontalStackLayout>
                                         <Border StrokeThickness="0" Background="{StaticResource PrimaryBrush}" Padding="5" StrokeShape="RoundRectangle 5">
-                                            <Label Text="{Binding Preset.SelectedVideoProfile.Container}" Style="{StaticResource SubHeadline}"/>
+                                            <Label Text="{Binding LocalVideoProfile.Container}" Style="{StaticResource SubHeadline}"/>
                                         </Border>
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>

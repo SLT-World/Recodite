@@ -174,6 +174,7 @@ namespace Recodite
                 if (value == _OriginalMediaPath)
                     return;
                 _OriginalMediaPath = value;
+                OriginalIsImage = Path.GetExtension(value) is ".gif" or ".webp";
                 RaisePropertyChanged();
             }
         }
@@ -210,6 +211,7 @@ namespace Recodite
                 if (value == _MediaPath)
                     return;
                 _MediaPath = value;
+                IsImage = Path.GetExtension(value) is ".gif" or ".webp";
                 RaisePropertyChanged();
             }
         }
@@ -237,14 +239,108 @@ namespace Recodite
             }
         }
 
-        public string StateText { get; set; } = "";
-        public string StateIcon { get; set; } = "";
-        public Color StateColor { get; set; }
-        public float Progress { get; set; } = 0;
+        private bool _IsImage = false;
+        public bool IsImage
+        {
+            get => _IsImage;
+            set
+            {
+                if (_IsImage == value) return;
+                _IsImage = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private bool _OriginalIsImage = false;
+        public bool OriginalIsImage
+        {
+            get => _OriginalIsImage;
+            set
+            {
+                if (_OriginalIsImage == value) return;
+                _OriginalIsImage = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        private string _StateText = "";
+        public string StateText
+        {
+            get => _StateText;
+            set
+            {
+                if (_StateText == value) return;
+                _StateText = value;
+                RaisePropertyChanged();
+            }
+        }
+        private string _StateIcon = "";
+        public string StateIcon
+        {
+            get => _StateIcon;
+            set
+            {
+                if (_StateIcon == value) return;
+                _StateIcon = value;
+                RaisePropertyChanged();
+            }
+        }
+        private Color _StateColor = Colors.Transparent;
+        public Color StateColor
+        {
+            get => _StateColor;
+            set
+            {
+                if (_StateColor == value) return;
+                _StateColor = value;
+                RaisePropertyChanged();
+            }
+        }
+        private float _Progress = 0;
+        public float Progress
+        {
+            get => _Progress;
+            set
+            {
+                if (_Progress == value) return;
+                _Progress = value;
+                RaisePropertyChanged();
+            }
+        }
         public TimeSpan Duration { get; set; }
-        public bool CanSave { get; set; } = false;
-        public bool CanCancel { get; set; } = false;
-        public bool CanModify { get; set; } = true;
+        private bool _CanSave = false;
+        public bool CanSave
+        {
+            get => _CanSave;
+            set
+            {
+                if (_CanSave == value) return;
+                _CanSave = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _CanCancel = false;
+        public bool CanCancel
+        {
+            get => _CanCancel;
+            set
+            {
+                if (_CanCancel == value) return;
+                _CanCancel = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _CanModify = true;
+        public bool CanModify
+        {
+            get => _CanModify;
+            set
+            {
+                if (_CanModify == value) return;
+                _CanModify = value;
+                RaisePropertyChanged();
+            }
+        }
         public CancellationTokenSource? CancellationTokenSource { get; set; }
 
         private VideoProfileInfo _LocalVideoProfile { get; set; }
@@ -281,9 +377,6 @@ namespace Recodite
                     CanSave = File.Exists(MediaPath);
                     CanCancel = false;
                     CanModify = false;
-                    RaisePropertyChanged(nameof(CanSave));
-                    RaisePropertyChanged(nameof(CanCancel));
-                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Process:
                     StateText = $"Processing: {_Progress * 100:0}%";
@@ -291,8 +384,6 @@ namespace Recodite
                     StateColor = Colors.MediumPurple;
                     CanCancel = true;
                     CanModify = false;
-                    RaisePropertyChanged(nameof(CanCancel));
-                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Pending:
                     StateText = "Pending";
@@ -300,8 +391,6 @@ namespace Recodite
                     StateColor = Colors.Orange;
                     CanCancel = true;
                     CanModify = true;
-                    RaisePropertyChanged(nameof(CanCancel));
-                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Fail:
                     StateText = "Failed";
@@ -310,9 +399,6 @@ namespace Recodite
                     CanSave = false;
                     CanCancel = false;
                     CanModify = false;
-                    RaisePropertyChanged(nameof(CanSave));
-                    RaisePropertyChanged(nameof(CanCancel));
-                    RaisePropertyChanged(nameof(CanModify));
                     break;
                 case AttachmentState.Cancel:
                     StateText = "Cancelled";
@@ -321,15 +407,8 @@ namespace Recodite
                     CanSave = false;
                     CanCancel = false;
                     CanModify = false;
-                    RaisePropertyChanged(nameof(CanSave));
-                    RaisePropertyChanged(nameof(CanCancel));
-                    RaisePropertyChanged(nameof(CanModify));
                     break;
             }
-            RaisePropertyChanged(nameof(Progress));
-            RaisePropertyChanged(nameof(StateText));
-            RaisePropertyChanged(nameof(StateIcon));
-            RaisePropertyChanged(nameof(StateColor));
         }
     }
 
@@ -605,7 +684,7 @@ namespace Recodite
                     _Attachment.CompressedSize = $"{CurrentBytes / 1024f / 1024f:0.0}";
                     _Attachment.SubText = $"{_Attachment.OriginalSize} MB 🡢 {_Attachment.CompressedSize} MB";
 
-                    _Attachment.SetState(AttachmentState.Complete, 1f);
+                    _Attachment.SetState(AttachmentState.Complete, GetCompressionRatio(_Attachment));
 
                     TryDelete(Palette);
                     return;
@@ -804,9 +883,22 @@ namespace Recodite
             {
                 MediaEntries.Add(_Attachment);
             });
-            _Attachment.PropertyChanged += (_, e) =>
+            _Attachment.PropertyChanged += async (_, e) =>
             {
-                RaisePropertyChanged(nameof(CanCompress));
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    RaisePropertyChanged(nameof(CanCompress));
+                    if (e.PropertyName == "IsImage")
+                    {
+                        if (_Attachment.IsImage == true)
+                        {
+                            OriginalVideo.Stop();
+                            CompressedVideo.Stop();
+                            VideoDurationSlider.Value = 0;
+                            PlayButton_Clicked(null, null);
+                        }
+                    }
+                });
             };
             _Attachment.Thumbnail = await GetThumbnail(_Attachment.MediaPath);
             ConvertMenuPlaceholder.IsVisible = false;
@@ -838,9 +930,23 @@ namespace Recodite
                 return null;
             return ImageSource.FromFile(ThumbnailPath);
         }
-
         private void ConvertMenu_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
             CurrentEntry = e.CurrentSelection.FirstOrDefault() as Attachment;
+
+        //TODO: Investigate inoperativeness
+        /*private void ConvertMenu_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            CurrentEntry = e.CurrentSelection.FirstOrDefault() as Attachment;
+            if (CurrentEntry == null)
+                return;
+            if (CurrentEntry.IsImage == true)
+            {
+                OriginalVideo.Stop();
+                CompressedVideo.Stop();
+                VideoDurationSlider.Value = 0;
+                PlayButton_Clicked(null, null);
+            }
+        }*/
 
         private float GetCompressionRatio(Attachment _Attachment) =>
             1f - ((float)new FileInfo(_Attachment.MediaPath).Length / new FileInfo(_Attachment.OriginalMediaPath).Length);
@@ -1016,11 +1122,12 @@ namespace Recodite
             if (CompareContainer.Width <= 0 || CompareContainer.Height <= 0)
                 return;
             double ClipWidth = CompareContainer.Width * Percentage;
-            
-            CompressedVideo.Clip = new Microsoft.Maui.Controls.Shapes.RectangleGeometry
+            var Clip = new Microsoft.Maui.Controls.Shapes.RectangleGeometry
             {
                 Rect = new Rect(0, 0, ClipWidth, CompareContainer.Height)
             };
+            OriginalImage.Clip = Clip;
+            OriginalVideo.Clip = Clip;
 
             Divider.TranslationX = ClipWidth;
         }
@@ -1114,6 +1221,18 @@ namespace Recodite
             TimeSpan Position = TimeSpan.FromSeconds(VideoDurationSlider.Value);
             OriginalVideo.SeekTo(Position);
             CompressedVideo.SeekTo(Position);
+        }
+
+        private void CompressedVideo_MediaOpened(object sender, EventArgs e)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                AllowVideoDurationChange = false;
+                TimeSpan Position = TimeSpan.FromSeconds(VideoDurationSlider.Value);
+                OriginalVideo.SeekTo(Position);
+                CompressedVideo.SeekTo(Position);
+                AllowVideoDurationChange = true;
+            });
         }
     }
 }
