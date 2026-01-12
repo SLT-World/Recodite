@@ -90,7 +90,7 @@
                                         </Grid>
                                         <Grid ColumnDefinitions="Auto,10,*">
                                             <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe8b2;" ToolTipProperties.Text="Video Profile" Style="{StaticResource SubHeadline}"/>
-                                            <Picker Grid.Column="2" ItemsSource="{Binding VideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding SelectedVideoProfile, Mode=TwoWay}" HeightRequest="30"/>
+                                            <Picker Grid.Column="2" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.AllVideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding SelectedVideoProfile, Mode=TwoWay}" HeightRequest="30"/>
                                         </Grid>
                                     </VerticalStackLayout>
                                 </Grid>
@@ -157,10 +157,11 @@
                                             </Grid>
                                         </Border>
                                         <HorizontalStackLayout Grid.Column="2" Spacing="10">
-                                            <Picker IsVisible="{Binding CanModify}" ItemsSource="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.Presets}" SelectedItem="{Binding Preset, Mode=TwoWay}" ItemDisplayBinding="{Binding Name}" HeightRequest="30"/>
-                                            <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
-                                            <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.CancelCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanCancel}" Style="{StaticResource SmallIconButton}" Text="&#xe711;" ToolTipProperties.Text="Cancel"></Button>
-                                            <Button Command="{Binding Source={x:Reference ConvertMenu}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
+                                            <Picker IsVisible="{Binding CanModify}" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.AllVideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding LocalVideoProfile, Mode=TwoWay}" HeightRequest="30"/>
+                                            <Picker IsVisible="{Binding CanModify}" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.Presets}" SelectedItem="{Binding Preset, Mode=TwoWay}" ItemDisplayBinding="{Binding Name}" HeightRequest="30"/>
+                                            <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
+                                            <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.CancelCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanCancel}" Style="{StaticResource SmallIconButton}" Text="&#xe711;" ToolTipProperties.Text="Cancel"></Button>
+                                            <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>
                                         </HorizontalStackLayout>
                                     </Grid>
                                 </Grid>
@@ -191,6 +192,11 @@
                                         <Label Text="{Binding OriginalSize}" Style="{StaticResource Header}"/>
                                         <Label Grid.Column="2" Text="MB" Style="{StaticResource SubHeader}"/>
                                     </Grid>
+                                    <HorizontalStackLayout>
+                                        <Border StrokeThickness="0" Background="{StaticResource PrimaryBrush}" Padding="5" StrokeShape="RoundRectangle 5">
+                                            <Label Text="{Binding OriginalExtension}" Style="{StaticResource SubHeadline}"/>
+                                        </Border>
+                                    </HorizontalStackLayout>
                                 </VerticalStackLayout>
                             </Border>
                             <Border Grid.Column="2" StrokeThickness="0" Background="{StaticResource SecondaryBrush}" Padding="10" StrokeShape="RoundRectangle 5">
@@ -208,6 +214,11 @@
                                             </Grid>
                                         </Border>
                                     </Grid>
+                                    <HorizontalStackLayout>
+                                        <Border StrokeThickness="0" Background="{StaticResource PrimaryBrush}" Padding="5" StrokeShape="RoundRectangle 5">
+                                            <Label Text="{Binding Preset.SelectedVideoProfile.Container}" Style="{StaticResource SubHeadline}"/>
+                                        </Border>
+                                    </HorizontalStackLayout>
                                 </VerticalStackLayout>
                             </Border>
                         </Grid>

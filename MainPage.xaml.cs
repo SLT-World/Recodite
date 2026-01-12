@@ -1,11 +1,9 @@
 ﻿using CommunityToolkit.Maui.Storage;
-using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 
@@ -129,10 +127,7 @@ namespace Recodite
             }
         }
 
-        [JsonIgnore]
-        public IReadOnlyList<VideoProfileInfo> VideoProfiles => MainPage.AllVideoProfiles;
-
-        private VideoProfileInfo _SelectedVideoProfile = MainPage.AllVideoProfiles.First(i => i.Profile == VideoProfile.Auto);
+        private VideoProfileInfo _SelectedVideoProfile = MainPage.Instance.AllVideoProfiles.First(i => i.Profile == VideoProfile.Auto);
         public VideoProfileInfo SelectedVideoProfile
         {
             get => _SelectedVideoProfile;
@@ -155,6 +150,7 @@ namespace Recodite
         private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
             PropertyChanged(this, new PropertyChangedEventArgs(Name));
         public string FileName { get; set; } = "";
+        public string OriginalExtension { get; set; } = "";
         private string _SubText = "";
         public string SubText
         {
@@ -238,16 +234,15 @@ namespace Recodite
         public bool CanModify { get; set; } = true;
         public CancellationTokenSource? CancellationTokenSource { get; set; }
 
-        //TODO: Add picker for entries
-        private VideoProfileInfo _SelectedVideoProfile { get; set; }
+        private VideoProfileInfo _LocalVideoProfile { get; set; }
         public VideoProfileInfo LocalVideoProfile
         {
-            get => _SelectedVideoProfile;
+            get => _LocalVideoProfile;
             set
             {
-                if (_SelectedVideoProfile == value)
+                if (_LocalVideoProfile == value)
                     return;
-                _SelectedVideoProfile = value;
+                _LocalVideoProfile = value.Profile != VideoProfile.Auto ? value : MainPage.Instance.AllVideoProfiles.FirstOrDefault(p => p.Container == OriginalExtension) ?? MainPage.Instance.AllVideoProfiles.First(p => p.Profile == VideoProfile.MP4_H264);
                 RaisePropertyChanged();
             }
         }
@@ -327,22 +322,14 @@ namespace Recodite
 
     public partial class MainPage : ContentPage, INotifyPropertyChanged
     {
+        public static MainPage Instance;
+
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged = delegate { };
 
         private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
             PropertyChanged(this, new PropertyChangedEventArgs(Name));
         #endregion
-        public static readonly IReadOnlyList<VideoProfileInfo> AllVideoProfiles =
-        [
-            new(VideoProfile.Auto, "Auto", "", ""),
-            new(VideoProfile.MP4_H264, "MP4 (H.264)", "mp4", "libx264"),
-            new(VideoProfile.MP4_H265, "MP4 (H.265 / HEVC)", "mp4", "libx265"),
-            new(VideoProfile.WebM_VP9, "WebM (VP9)", "webm", "libvpx-vp9"),
-            new(VideoProfile.WebM_AV1, "WebM (AV1)", "webm", "libaom-av1"),
-            new(VideoProfile.GIF, "GIF (Animated)", "gif", "gif"),
-            new(VideoProfile.WebP, "WebP (Animated)", "webp", "libwebp"),
-        ];
         private string PresetsPath => Path.Combine(FileSystem.AppDataDirectory, "presets.json");
         public bool CanCompress => MediaEntries.Any() && MediaEntries.Any(a => string.IsNullOrEmpty(a.StateText));
         public bool CanRemovePresets => Presets.Any() && Presets.Count > 1;
@@ -372,6 +359,28 @@ namespace Recodite
                 _Presets = value;
                 RaisePropertyChanged();
                 RaisePropertyChanged(nameof(CanRemovePresets));
+            }
+        }
+
+        private ObservableCollection<VideoProfileInfo> _AllVideoProfiles =
+        [
+            new(VideoProfile.Auto, "Auto", "", ""),
+            new(VideoProfile.MP4_H264, "MP4 (H.264)", "mp4", "libx264"),
+            new(VideoProfile.MP4_H265, "MP4 (H.265 / HEVC)", "mp4", "libx265"),
+            new(VideoProfile.WebM_VP9, "WebM (VP9)", "webm", "libvpx-vp9"),
+            new(VideoProfile.WebM_AV1, "WebM (AV1)", "webm", "libaom-av1"),
+            new(VideoProfile.GIF, "GIF (Animated)", "gif", "gif"),
+            new(VideoProfile.WebP, "WebP (Animated)", "webp", "libwebp"),
+        ];
+        public ObservableCollection<VideoProfileInfo> AllVideoProfiles
+        {
+            get { return _AllVideoProfiles; }
+            set
+            {
+                if (value == _AllVideoProfiles)
+                    return;
+                _AllVideoProfiles = value;
+                RaisePropertyChanged();
             }
         }
 
@@ -409,6 +418,7 @@ namespace Recodite
 
         public MainPage()
         {
+            Instance = this;
             InitializeComponent();
             DeleteCommand = new Command<Attachment>(DeleteAttachment);
             SaveCommand = new Command<Attachment>(SaveAttachment);
@@ -593,12 +603,6 @@ namespace Recodite
                 else
                     VideoRateArguments = $"-b:v {GetTargetVideoBitrate(_Attachment.Duration, _Attachment.Preset.TargetSizeMB)}";
                 string Arguments = $"-i \"{_Attachment.MediaPath}\" -c:v {Codec} {PresetArguments} -vf \"scale='min(720,iw)':-2\" {VideoRateArguments}";
-
-#if WINDOWS
-                string NullDevice = "NUL";
-#else
-                string NullDevice =  "/dev/null";
-#endif
                 Action<string>? OnStandardError = StandardError =>
                 {
                     if (_Attachment.Duration.TotalSeconds <= 0)
@@ -646,7 +650,14 @@ namespace Recodite
                     string TwoPassArguments = UseTwoPass ? "-pass 2" : "";
 
                     if (UseTwoPass)
+                    {
+#if WINDOWS
+                        string NullDevice = "NUL";
+#else
+                        string NullDevice = "/dev/null";
+#endif
                         RunFFmpeg($"-y {Arguments} -pass 1 {AudioArguments} -f {_Attachment.LocalVideoProfile.Container} {NullDevice}", _Attachment);
+                    }
 
                     RunFFmpeg($"-y {Arguments} {TwoPassArguments} {AudioArguments} \"{Output}\"", _Attachment, OnStandardError);
                 }
@@ -766,10 +777,10 @@ namespace Recodite
                 MediaPath = File.FullName,
                 MediaPathOriginal = File.FullName,
                 OriginalSize = $"{File.Length / 1024f / 1024f:0.0}",
-                Preset = DefaultPreset
+                Preset = DefaultPreset,
+                OriginalExtension = Path.GetExtension(File.FullName).ToLowerInvariant().TrimStart('.')
             };
-            string Extension = Path.GetExtension(_Attachment.MediaPath).ToLowerInvariant();
-            _Attachment.LocalVideoProfile = DefaultPreset.SelectedVideoProfile.Profile != VideoProfile.Auto ? DefaultPreset.SelectedVideoProfile : AllVideoProfiles.FirstOrDefault(p => "." + p.Container == Extension) ?? AllVideoProfiles.First(p => p.Profile == VideoProfile.MP4_H264);
+            _Attachment.LocalVideoProfile = DefaultPreset.SelectedVideoProfile.Profile != VideoProfile.Auto ? DefaultPreset.SelectedVideoProfile : AllVideoProfiles.FirstOrDefault(p => p.Container == _Attachment.OriginalExtension) ?? AllVideoProfiles.First(p => p.Profile == VideoProfile.MP4_H264);
             _Attachment.SubText = $"{_Attachment.OriginalSize} MB";
             _Attachment.Duration = GetDuration(_Attachment.MediaPath);
             await MainThread.InvokeOnMainThreadAsync(() =>
