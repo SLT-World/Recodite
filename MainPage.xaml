@@ -22,7 +22,7 @@
         <Grid x:Name="OptionsMenu" IsVisible="False" RowDefinitions="Auto,0,*" WidthRequest="400" Background="{StaticResource PrimaryBrush}">
             <ScrollView Grid.Row="2" Padding="10">
                 <VerticalStackLayout Spacing="10">
-                    <Border HeightRequest="600" Background="{StaticResource SecondaryBrush}" Stroke="{StaticResource SecondaryBrush}" StrokeThickness="0.2" StrokeShape="RoundRectangle 5">
+                    <Border HeightRequest="400" Background="{StaticResource SecondaryBrush}" Stroke="{StaticResource SecondaryBrush}" StrokeThickness="0.2" StrokeShape="RoundRectangle 5">
                         <Grid ColumnDefinitions="Auto,1,*" RowDefinitions="*,1,Auto">
                             <Border Background="{StaticResource PrimaryBrush}" Padding="10,5" StrokeThickness="0">
                                 <CollectionView SelectionMode="Single" SelectionChanged="PresetsMenu_SelectionChanged" x:Name="PresetsMenu" ItemsSource="{Binding Presets}">
@@ -89,7 +89,7 @@
                                         </Grid>
                                         <Grid ColumnDefinitions="Auto,10,*">
                                             <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe8b2;" ToolTipProperties.Text="Video Profile" Style="{StaticResource SubHeadline}"/>
-                                            <Picker Grid.Column="2" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.AllVideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding SelectedVideoProfile, Mode=TwoWay}" HeightRequest="30"/>
+                                            <Picker Grid.Column="2" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.AllVideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding SelectedVideoProfile, Mode=TwoWay}"/>
                                         </Grid>
                                     </VerticalStackLayout>
                                 </Grid>
@@ -105,7 +105,20 @@
                         </Grid>
                     </Border>
                     <Button Clicked="ImportPresetButton_Clicked" Text="Import Preset"></Button>
-
+                    <Border HeightRequest="400" Background="{StaticResource PrimaryBrush}" Stroke="{StaticResource SecondaryBrush}" StrokeThickness="1" StrokeShape="RoundRectangle 5">
+                        <VerticalStackLayout Padding="10" Spacing="10" BindingContext="{Binding CurrentSettings}">
+                            <Grid ColumnDefinitions="Auto,10,Auto,10,*">
+                                <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xee71;" ToolTipProperties.Text="Use Custom Output Folder" Style="{StaticResource SubHeadline}"/>
+                                <Switch x:Name="CustomOutputFolderSwitch" MinimumWidthRequest="0" Grid.Column="2" IsToggled="{Binding UseCustomOutputFolder, Mode=TwoWay}"/>
+                                <Label VerticalOptions="Center" Grid.Column="4" Text="Use Custom Output Folder" Style="{StaticResource Headline}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+                                <Label FontFamily="IconFontTypes" VerticalOptions="Center" Text="&#xe8b7;" ToolTipProperties.Text="Output Folder" Style="{StaticResource SubHeadline}"/>
+                                <Label x:Name="OutputFolderText" Grid.Column="2" HorizontalOptions="Fill" VerticalOptions="Center" Text="{Binding OutputPath}" Style="{StaticResource SubHeadline}"/>
+                                <Button Grid.Column="4" Clicked="SetOutputFolderButton_Clicked" Text="Change" IsEnabled="{Binding UseCustomOutputFolder}"/>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
                 </VerticalStackLayout>
             </ScrollView>
         </Grid>
@@ -164,6 +177,7 @@
                                         <HorizontalStackLayout Grid.Column="2" Spacing="10">
                                             <Picker IsVisible="{Binding CanModify}" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.AllVideoProfiles}" ItemDisplayBinding="{Binding DisplayName}" SelectedItem="{Binding LocalVideoProfile, Mode=TwoWay}" HeightRequest="30"/>
                                             <Picker IsVisible="{Binding CanModify}" ItemsSource="{Binding Source={x:Reference AppPage}, Path=BindingContext.Presets}" SelectedItem="{Binding Preset, Mode=TwoWay}" ItemDisplayBinding="{Binding Name}" HeightRequest="30"/>
+                                            <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.OpenFolderCommand}" CommandParameter="{Binding .}" IsVisible="{Binding Source={x:Reference AppPage}, Path=BindingContext.CurrentSettings.UseCustomOutputFolder}" Style="{StaticResource SmallIconButton}" Text="&#xe838;" ToolTipProperties.Text="Open Folder"></Button>
                                             <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.SaveCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanSave}" Style="{StaticResource SmallIconButton}" Text="&#xe74e;" ToolTipProperties.Text="Save"></Button>
                                             <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.CancelCommand}" CommandParameter="{Binding .}" IsVisible="{Binding CanCancel}" Style="{StaticResource SmallIconButton}" Text="&#xe711;" ToolTipProperties.Text="Cancel"></Button>
                                             <Button Command="{Binding Source={x:Reference AppPage}, Path=BindingContext.DeleteCommand}" CommandParameter="{Binding .}" Style="{StaticResource SmallIconButton}" Text="&#xe74d;" ToolTipProperties.Text="Remove"></Button>

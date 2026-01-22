@@ -47,6 +47,36 @@ namespace Recodite
         WebP = 101,
     }
 
+    public class Settings : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler PropertyChanged = delegate { };
+
+        private void RaisePropertyChanged([CallerMemberName] string Name = null) =>
+            PropertyChanged(this, new PropertyChangedEventArgs(Name));
+        private string _OutputPath = "";
+        public string OutputPath
+        {
+            get => _OutputPath;
+            set
+            {
+                _OutputPath = value;
+                RaisePropertyChanged();
+            }
+        }
+        private bool _UseCustomOutputFolder = false;
+        public bool UseCustomOutputFolder
+        {
+            get => _UseCustomOutputFolder;
+            set
+            {
+                if (value == _UseCustomOutputFolder)
+                    return;
+                _UseCustomOutputFolder = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
     public class CompressionPreset : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged = delegate { };
@@ -423,6 +453,7 @@ namespace Recodite
             PropertyChanged(this, new PropertyChangedEventArgs(Name));
         #endregion
         private string PresetsPath => Path.Combine(FileSystem.AppDataDirectory, "presets.json");
+        private string SettingsPath => Path.Combine(FileSystem.AppDataDirectory, "settings.json");
         public bool CanCompress => MediaEntries.Any() && MediaEntries.Any(a => string.IsNullOrEmpty(a.StateText));
         public bool CanRemovePresets => Presets.Any() && Presets.Count > 1;
 
@@ -488,6 +519,20 @@ namespace Recodite
                 RaisePropertyChanged();
             }
         }
+        
+
+        private Settings _CurrentSettings;
+        public Settings CurrentSettings
+        {
+            get { return _CurrentSettings; }
+            set
+            {
+                if (value == _CurrentSettings)
+                    return;
+                _CurrentSettings = value;
+                RaisePropertyChanged();
+            }
+        }
 
         private CompressionPreset? _CurrentPresetOptions = null;
         public CompressionPreset? CurrentPresetOptions
@@ -503,17 +548,23 @@ namespace Recodite
         }
 
         public ICommand DeleteCommand { get; }
+        public ICommand OpenFolderCommand { get; }
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
 
         string FFmpegPath = "";
-
+        /*private void CurrentDomain_FirstChanceException(object sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
+        {
+            Debug.WriteLine($"********************************** UNHANDLED EXCEPTION Details: {e.Exception.ToString()}");
+        }*/
         public MainPage()
         {
+            //AppDomain.CurrentDomain.FirstChanceException += CurrentDomain_FirstChanceException;
             Instance = this;
             InitializeComponent();
             DeleteCommand = new Command<Attachment>(DeleteAttachment);
             SaveCommand = new Command<Attachment>(SaveAttachment);
+            OpenFolderCommand = new Command<Attachment>(OpenFolderAttachment);
             CancelCommand = new Command<Attachment>(CancelAttachment);
             if (File.Exists(PresetsPath))
             {
@@ -533,8 +584,17 @@ namespace Recodite
                     GeneratePreset("Balanced", 15, CompressionSpeed.Fast)
                 ];
             }
+            if (File.Exists(SettingsPath))
+                CurrentSettings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath)) ?? new() { OutputPath = "?", UseCustomOutputFolder = false };
+            else
+                CurrentSettings = new() { OutputPath = "?", UseCustomOutputFolder = false };
+            if (CurrentSettings.UseCustomOutputFolder && !Directory.Exists(CurrentSettings.OutputPath))
+            {
+                CurrentSettings.UseCustomOutputFolder = false;
+                CurrentSettings.OutputPath = "?";
+            }
+            CurrentSettings.PropertyChanged += (_, e) => SaveSettings();
             Presets.CollectionChanged += (_, e) => SavePresets();
-
             DefaultPreset = Presets.FirstOrDefault(i => i.Default) ?? Presets[0];
             DefaultPreset.Default = true;
             PresetsMenu.SelectedItem = DefaultPreset;
@@ -551,6 +611,11 @@ namespace Recodite
         private void SavePresets()
         {
             File.WriteAllText(PresetsPath, JsonSerializer.Serialize(Presets, new JsonSerializerOptions { WriteIndented = false }));
+        }
+
+        private void SaveSettings()
+        {
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(CurrentSettings, new JsonSerializerOptions { WriteIndented = false }));
         }
 
         string CompressioSpeedToFFmpegPreset(CompressionSpeed Speed)
@@ -591,6 +656,19 @@ namespace Recodite
                 return;
             using var Stream = File.OpenRead(_Attachment.MediaPath);
             await FileSaver.Default.SaveAsync(Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed." + _Attachment.LocalVideoProfile.Container, Stream);
+        }
+
+        private async void OpenFolderAttachment(Attachment _Attachment)
+        {
+            if (_Attachment == null || !File.Exists(_Attachment.MediaPath))
+                return;
+#if WINDOWS
+            Process.Start("explorer.exe", $"/select,\"{_Attachment.MediaPath}\"");
+#elif MACCATALYST
+            Process.Start("open", $"\"{Path.GetDirectoryName(_Attachment.MediaPath)}\"");
+#else
+            await Launcher.OpenAsync(new OpenFileRequest { File = new ReadOnlyFile(_Attachment.MediaPath) });
+#endif
         }
 
         private async void CancelAttachment(Attachment _Attachment)
@@ -643,7 +721,7 @@ namespace Recodite
             }
             if (_Attachment.StateText != "Pending")
                 return;
-            string Output = Path.Combine(FileSystem.CacheDirectory, Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed." + _Attachment.LocalVideoProfile.Container);
+            string Output = Path.Combine(CurrentSettings.UseCustomOutputFolder && Directory.Exists(CurrentSettings.OutputPath) ? CurrentSettings.OutputPath : FileSystem.CacheDirectory, Path.GetFileNameWithoutExtension(_Attachment.FileName) + "_compressed." + _Attachment.LocalVideoProfile.Container);
             _Attachment.SetState(AttachmentState.Process, 0f);
 
             _Attachment.CancellationTokenSource = new CancellationTokenSource();
@@ -968,7 +1046,7 @@ namespace Recodite
             using var _File = File.Create(FFmpegPath);
             await Stream.CopyToAsync(_File);
 #if !WINDOWS
-                Process.Start("chmod", $"+x \"{FFmpegPath}\"")?.WaitForExit();
+            Process.Start("chmod", $"+x \"{FFmpegPath}\"")?.WaitForExit();
 #endif
         }
 
@@ -1082,7 +1160,9 @@ namespace Recodite
         {
             try
             {
-                IEnumerable<FileResult> Files = await FilePicker.Default.PickMultipleAsync(new PickOptions { FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                IEnumerable<FileResult> Files = await FilePicker.Default.PickMultipleAsync(new PickOptions
+                {
+                    FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                     {
 #if WINDOWS
                         { DevicePlatform.WinUI, ["json"] },
@@ -1100,11 +1180,11 @@ namespace Recodite
                             continue;
                         LoadedPreset.PropertyChanged += (_, e) => SavePresets();
                         Presets.Add(LoadedPreset);
-                    }    
+                    }
                 }
             }
             catch { }
-            
+
         }
 
         private async void ExportPresetButton_Clicked(object sender, EventArgs e)
@@ -1263,6 +1343,13 @@ namespace Recodite
                 CompressedVideo.SeekTo(Position);
                 AllowVideoDurationChange = true;
             });
+        }
+
+        private async void SetOutputFolderButton_Clicked(object sender, EventArgs e)
+        {
+            FolderPickerResult Result = await FolderPicker.Default.PickAsync();
+            if (Result.IsSuccessful)
+                CurrentSettings.OutputPath = Result.Folder.Path;
         }
     }
 }
