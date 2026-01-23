@@ -584,21 +584,21 @@ namespace Recodite
                     GeneratePreset("Balanced", 15, CompressionSpeed.Fast)
                 ];
             }
-            if (File.Exists(SettingsPath))
-                CurrentSettings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath)) ?? new() { OutputPath = "?", UseCustomOutputFolder = false };
-            else
-                CurrentSettings = new() { OutputPath = "?", UseCustomOutputFolder = false };
-            if (CurrentSettings.UseCustomOutputFolder && !Directory.Exists(CurrentSettings.OutputPath))
-            {
-                CurrentSettings.UseCustomOutputFolder = false;
-                CurrentSettings.OutputPath = "?";
-            }
-            CurrentSettings.PropertyChanged += (_, e) => SaveSettings();
             Presets.CollectionChanged += (_, e) => SavePresets();
             DefaultPreset = Presets.FirstOrDefault(i => i.Default) ?? Presets[0];
             DefaultPreset.Default = true;
             PresetsMenu.SelectedItem = DefaultPreset;
             RaisePropertyChanged(nameof(CanRemovePresets));
+
+            CurrentSettings = File.Exists(SettingsPath) ? (JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath)) ?? new() { OutputPath = "?", UseCustomOutputFolder = false }) : new() { OutputPath = "?", UseCustomOutputFolder = false };
+            if (CurrentSettings.UseCustomOutputFolder && !Directory.Exists(CurrentSettings.OutputPath))
+            {
+                CurrentSettings.UseCustomOutputFolder = false;
+                CurrentSettings.OutputPath = "?";
+                SaveSettings();
+                DisplayAlertAsync("Invalid Output Path", "Assigned output folder cannot be found on the device.", "OK");
+            }
+            CurrentSettings.PropertyChanged += (_, e) => SaveSettings();
         }
 
         public CompressionPreset GeneratePreset(string Name, int TargetSizeMB, CompressionSpeed Speed, bool Default = false)
